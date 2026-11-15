@@ -226,7 +226,8 @@
     .po-kpis { gap: 10px; }
     .po-kpi { gap: 10px; min-height: 78px; padding: 12px; }
     .po-kpi-icon { width: 40px; height: 40px; } .po-kpi-icon .po-icon { width: 22px; height: 22px; }
-    .po-kpi-count { font-size: 24px; } .po-kpi-label { font-size: 15px; }
+    .po-kpi-count { font-size: 24px; } .po-kpi-label { font-size: 14px; line-height: 1.25; }
+    .po-kpi-arrow { display: none; }
   }
 
   .po-work { padding: 0; }
@@ -238,7 +239,7 @@
   .po-tabs a { flex: none; padding: 12px 14px; font-size: 16px; font-weight: 500; color: var(--po-foreground); text-decoration: none;
     border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; }
   .po-tabs a:hover { color: var(--po-nav-active); }
-  .po-tabs a[aria-current="page"] { color: var(--po-nav-active); border-bottom-color: var(--po-nav-active); font-weight: 700; }
+  .po-tabs a[aria-current="true"] { color: var(--po-nav-active); border-bottom-color: var(--po-nav-active); font-weight: 700; }
   .po-tabs a:focus-visible { outline: 3px solid var(--po-info); outline-offset: -3px; }
   .po-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 0; }
   .po-search { position: relative; flex: 1 1 280px; min-width: 0; }
@@ -284,7 +285,8 @@
     .po-table td { border: 0; padding: 4px 0; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
     .po-table td::before { content: attr(data-label); color: var(--po-muted); font-size: 13px; flex: none; }
     .po-truncate { max-width: 60vw; }
-    .po-select, .po-chip { flex: 1 1 100%; }
+    .po-select { flex: 1 1 100%; }
+    .po-chip { display: none; }
     .po-filters .btn-secondary { flex: 1 1 auto; justify-content: center; }
   }
 }

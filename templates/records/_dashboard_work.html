@@ -1,5 +1,5 @@
 <nav class="po-tabs" aria-label="Lọc theo trạng thái">
-  {% for t in tab_links %}<a href="{{ t.href }}" hx-get="{{ t.href }}" hx-target="#dashboard-work" hx-push-url="true" data-testid="dashboard-tab-{{ t.key }}"{% if t.active %} aria-current="page"{% endif %}>{{ t.label }} ({{ t.count }})</a>{% endfor %}
+  {% for t in tab_links %}<a href="{{ t.href }}" hx-get="{{ t.href }}" hx-target="#dashboard-work" hx-push-url="true" data-testid="dashboard-tab-{{ t.key }}"{% if t.active %} aria-current="true"{% endif %}>{{ t.label }} ({{ t.count }})</a>{% endfor %}
 </nav>
 <form method="get" action="{% url 'dashboard' %}" class="po-filters" role="search" data-testid="dashboard-filters"
       hx-get="{% url 'dashboard' %}" hx-target="#dashboard-work" hx-push-url="true" hx-trigger="submit, change from:#dash-dept">
