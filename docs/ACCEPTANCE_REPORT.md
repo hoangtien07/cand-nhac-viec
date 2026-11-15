@@ -17,7 +17,7 @@
 | `manage.py check --deploy` (demo settings, HSTS 1y) | PASS with 2 warnings: W005 `SECURE_HSTS_INCLUDE_SUBDOMAINS`, W021 `SECURE_HSTS_PRELOAD` — intentionally off (domain unknown, owner decision) |
 | `docker compose up -d --build` → db/web/scheduler/proxy | PASS — web healthy, `/login/` 200 over HTTPS, HSTS/secure `__Host-` cookies/XFO DENY/nosniff present; scheduler ran `send_due_reminders` |
 | `scripts/restore_drill.sh` | PASS — live vs restored: units=2 users=15 records=6 done=1 results=2 audit=12 notifications=8; append-only trigger still rejects DELETE on restored DB |
-| GitHub Actions CI (`.github/workflows/ci.yml`) | NOT RUN — remote repo not created yet |
+| GitHub Actions CI (`deploy/github/ci.yml`) | NOT RUN — PAT lacks `workflow` scope, so the workflow is parked outside `.github/workflows/` until it can be pushed |
 
 ## A01–A28
 
