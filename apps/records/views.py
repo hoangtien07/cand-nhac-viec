@@ -13,7 +13,7 @@ from apps.accounts.models import User
 from apps.audit.models import AuditEvent
 from apps.notifications.models import NotificationType
 
-from . import policies, services
+from . import dashboard_queries, policies, services
 from .codes import normalize_code
 from .forms import (
     AssignmentForm,
@@ -26,7 +26,7 @@ from .forms import (
 from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
-from .ui_state import SESSION_KEY, parse_work_year
+from .ui_state import SESSION_KEY, get_active_work_year, parse_work_year
 
 BUSINESS_DENIED = "Tài khoản quản trị kỹ thuật không được xem hồ sơ nghiệp vụ."
 
@@ -53,31 +53,19 @@ def dashboard(request):
     if user.is_sys_admin:
         return redirect("adminpanel:home")
     _require_business(user)
-    now = db_now()
-    mine = _base_qs(user).filter(assignees__user=user, assignees__is_active=True)
-    open_mine = mine.filter(status=RecordStatus.OPEN)
-    ctx = {
-        "now": now,
-        "overdue": attach_state(overdue(open_mine, now).order_by("due_at")[:50], now),
-        "due_soon": attach_state(due_soon(open_mine, now).order_by("due_at")[:50], now),
-        "other_open": attach_state(
-            open_mine.exclude(pk__in=overdue(open_mine, now))
-            .exclude(pk__in=due_soon(open_mine, now))
-            .order_by("due_at")[:50],
-            now,
-        ),
-        "recent_done": attach_state(
-            mine.filter(status=RecordStatus.DONE).order_by("-completed_at")[:10], now
-        ),
-        "assigned_by_me": attach_state(
-            _base_qs(user)
-            .filter(Q(assigner=user) | Q(created_by=user), status=RecordStatus.OPEN)
-            .order_by("due_at")[:20],
-            now,
-        ),
-        "can_create": policies.creatable_departments(user).exists(),
-    }
-    return render(request, "records/dashboard.html", ctx)
+    g = request.GET
+    data = dashboard_queries.get_dashboard_data(
+        user=user,
+        year=get_active_work_year(request),
+        tab=g.get("tab", ""),
+        q=g.get("q", ""),
+        page_number=g.get("page"),
+        now=db_now(),
+        department=g.get("department", ""),
+        due=g.get("due", ""),
+    )
+    partial = request.htmx and request.htmx.target == "dashboard-work"
+    return render(request, "records/_dashboard_work.html" if partial else "records/dashboard.html", data)
 
 
 @require_POST

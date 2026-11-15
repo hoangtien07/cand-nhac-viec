@@ -1,0 +1,5 @@
+{% if page.has_other_pages %}<nav class="po-pagination" aria-label="Phân trang">
+  {% if prev_href %}<a class="btn-secondary" href="{{ base_path }}{{ prev_href }}"{% if hx_target %} hx-get="{{ base_path }}{{ prev_href }}" hx-target="{{ hx_target }}" hx-push-url="true"{% endif %} rel="prev">{% include "components/_icon.html" with name="chevron-left" %} Trước</a>{% endif %}
+  <span>Trang {{ page.number }}/{{ page.paginator.num_pages }} · {{ page.paginator.count }} hồ sơ</span>
+  {% if next_href %}<a class="btn-secondary" href="{{ base_path }}{{ next_href }}"{% if hx_target %} hx-get="{{ base_path }}{{ next_href }}" hx-target="{{ hx_target }}" hx-push-url="true"{% endif %} rel="next">Sau {% include "components/_icon.html" with name="chevron-right" %}</a>{% endif %}
+</nav>{% endif %}

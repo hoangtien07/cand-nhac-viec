@@ -1,24 +1,21 @@
-{% extends "base.html" %}{% block title %}Việc của tôi{% endblock %}
+{% extends "base.html" %}{% block title %}Trang chủ – Việc của tôi{% endblock %}
 {% block content %}
-<div class="flex flex-wrap items-center gap-3 mb-6">
-  <h1 class="text-2xl font-bold">Việc của tôi</h1>
-  <form action="{% url 'records:list' %}" method="get" class="flex gap-2 ml-auto" role="search">
-    <label for="dash-q" class="sr-only">Tìm số hiệu</label>
-    <input id="dash-q" class="input w-64" name="q" placeholder="Tìm theo số hiệu…">
-    <button class="btn-secondary">Tìm</button>
-  </form>
-  {% if can_create %}<a class="btn-primary" href="{% url 'records:create' %}">+ Tạo hồ sơ</a>{% endif %}
-</div>
-<div class="grid gap-6 md:grid-cols-2">
-  <section class="card p-0" aria-labelledby="h-overdue"><h2 id="h-overdue" class="section-h text-red-800">Quá hạn ({{ overdue|length }})</h2>
-    <ul class="divide-y">{% include "records/_record_rows.html" with rows=overdue empty="Không có việc quá hạn." %}</ul></section>
-  <section class="card p-0" aria-labelledby="h-soon"><h2 id="h-soon" class="section-h text-amber-800">Sắp đến hạn ({{ due_soon|length }})</h2>
-    <ul class="divide-y">{% include "records/_record_rows.html" with rows=due_soon empty="Không có việc sắp đến hạn." %}</ul></section>
-  <section class="card p-0" aria-labelledby="h-open"><h2 id="h-open" class="section-h">Đang xử lý khác ({{ other_open|length }})</h2>
-    <ul class="divide-y">{% include "records/_record_rows.html" with rows=other_open empty="Không có việc khác." %}</ul></section>
-  <section class="card p-0" aria-labelledby="h-done"><h2 id="h-done" class="section-h text-green-800">Đã hoàn thành gần đây</h2>
-    <ul class="divide-y">{% include "records/_record_rows.html" with rows=recent_done empty="Chưa có hồ sơ hoàn thành." %}</ul></section>
-  <section class="card p-0 md:col-span-2" aria-labelledby="h-mine"><h2 id="h-mine" class="section-h">Hồ sơ tôi tạo/giao đang mở</h2>
-    <ul class="divide-y">{% include "records/_record_rows.html" with rows=assigned_by_me empty="Bạn chưa giao hồ sơ nào đang mở." %}</ul></section>
+<div class="po-home">
+  <div class="po-home-main">
+    <div class="po-page-head">
+      <h1>Xin chào, {{ user.full_name }}</h1>
+      <p>Dưới đây là tình hình hồ sơ công việc bạn được giao trong năm làm việc {{ year }}.</p>
+    </div>
+    <section class="po-kpis" aria-label="Tổng quan hồ sơ được giao">
+      {% include "components/_kpi_card.html" with tone="danger" icon="clipboard" count=counts.overdue label="Quá hạn" href=kpi_hrefs.overdue testid="dashboard-kpi-overdue" arrow=True %}
+      {% include "components/_kpi_card.html" with tone="warning" icon="clock" count=counts.due_soon label="Sắp đến hạn" href=kpi_hrefs.due_soon testid="dashboard-kpi-soon" arrow=True %}
+      {% include "components/_kpi_card.html" with tone="info" icon="layers" count=counts.processing label="Đang xử lý" href=kpi_hrefs.processing testid="dashboard-kpi-processing" %}
+      {% include "components/_kpi_card.html" with tone="success" icon="check-circle" count=counts.done label="Đã hoàn thành" href=kpi_hrefs.done testid="dashboard-kpi-done" %}
+    </section>
+    <section class="card po-work" aria-labelledby="h-mywork">
+      <div class="po-card-head"><h2 id="h-mywork">{% include "components/_icon.html" with name="calendar" %}Công việc của tôi</h2></div>
+      <div id="dashboard-work" class="po-work-body">{% include "records/_dashboard_work.html" %}</div>
+    </section>
+  </div>
 </div>
 {% endblock %}

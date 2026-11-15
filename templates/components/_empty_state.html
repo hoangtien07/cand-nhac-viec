@@ -1,0 +1,5 @@
+<div class="po-empty" data-testid="{{ testid|default:'empty-state' }}">
+  {% include "components/_icon.html" with name=icon|default:"folder" cls="po-empty-icon" %}
+  <p>{{ text }}</p>
+  {% if cta_href %}<a class="btn-secondary" href="{{ cta_href }}"{% if cta_hx %} hx-get="{{ cta_href }}" hx-target="#dashboard-work" hx-push-url="true"{% endif %}>{{ cta_label }}</a>{% endif %}
+</div>

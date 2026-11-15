@@ -1,0 +1,5 @@
+<a href="{{ href }}" class="po-kpi po-kpi-{{ tone }}" data-testid="{{ testid }}">
+  <span class="po-kpi-icon">{% include "components/_icon.html" with name=icon %}</span>
+  <span class="po-kpi-body"><span class="po-kpi-count">{{ count }}</span>
+    <span class="po-kpi-label">{{ label }}{% if arrow %} {% include "components/_icon.html" with name="arrow-right" cls="po-kpi-arrow" %}{% endif %}</span></span>
+</a>
