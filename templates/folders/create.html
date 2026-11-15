@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Tạo nhóm hồ sơ{% endblock %}
+{% block content %}
+<nav class="text-sm mb-2"><a class="link" href="{% url 'folders:index' %}">← Nhóm hồ sơ</a></nav>
+<h1 class="text-2xl font-bold mb-4">Tạo nhóm hồ sơ</h1>
+<div class="card max-w-2xl">
+  {% if form.non_field_errors %}<div class="msg msg-error mb-3">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  <form method="post" class="space-y-4">{% csrf_token %}
+    {% include "_field.html" with f=form.name %}
+    {% include "_field.html" with f=form.owner_department %}
+    {% include "_field.html" with f=form.description_short %}
+    <p class="text-sm text-slate-600">Nhóm hồ sơ thuộc một phòng/đội sở hữu. Một hồ sơ chỉ nằm trong tối đa một nhóm và phải cùng phòng chủ trì. Bạn sẽ là người quản lý nhóm này.</p>
+    <button class="btn-primary">Tạo nhóm hồ sơ</button>
+  </form>
+</div>
+{% endblock %}

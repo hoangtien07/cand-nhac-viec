@@ -107,11 +107,34 @@ class RecordFilterForm(forms.Form):
     department = forms.ModelChoiceField(
         label="Phòng chủ trì", queryset=None, required=False, empty_label="Tất cả phòng"
     )
+    folder = forms.ModelChoiceField(
+        label="Nhóm hồ sơ", queryset=None, required=False, empty_label="Tất cả nhóm"
+    )
     status = forms.ChoiceField(label="Trạng thái", choices=STATUS_CHOICES, required=False)
+    assignee = forms.ModelChoiceField(
+        label="Người xử lý", queryset=None, required=False, empty_label="Tất cả"
+    )
+    creator = forms.ModelChoiceField(
+        label="Người tạo", queryset=None, required=False, empty_label="Tất cả"
+    )
+    due_from = forms.DateField(
+        label="Hạn từ", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    due_to = forms.DateField(
+        label="Hạn đến", required=False, widget=forms.DateInput(attrs={"type": "date"})
+    )
+    assigned_to_me = forms.BooleanField(label="Giao cho tôi", required=False)
+    shared_with_me = forms.BooleanField(label="Chia sẻ với tôi", required=False)
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from apps.accounts.models import User
+        from apps.organization import folder_policies
         from apps.organization.models import Department
 
         visible_depts = policies.visible_records_queryset(user).values("owner_department_id")
         self.fields["department"].queryset = Department.objects.filter(id__in=visible_depts)
+        self.fields["folder"].queryset = folder_policies.visible_folders_queryset(user)
+        unit_users = User.objects.filter(unit_id=user.unit_id, is_active=True).order_by("full_name")
+        self.fields["assignee"].queryset = unit_users
+        self.fields["creator"].queryset = unit_users

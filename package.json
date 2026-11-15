@@ -4,11 +4,13 @@
   "scripts": {
     "build:css": "tailwindcss -i assets/app.css -o static/css/app.css --minify",
     "watch:css": "tailwindcss -i assets/app.css -o static/css/app.css --watch",
-    "vendor:htmx": "cp node_modules/htmx.org/dist/htmx.min.js static/vendor/htmx.min.js"
+    "vendor:htmx": "cp node_modules/htmx.org/dist/htmx.min.js static/vendor/htmx.min.js",
+    "vendor:chart": "cp node_modules/chart.js/dist/chart.umd.js static/vendor/chart.umd.js"
   },
   "devDependencies": {
     "@tailwindcss/cli": "4.3.5",
-    "tailwindcss": "4.3.5",
-    "htmx.org": "2.0.11"
+    "chart.js": "4.6.1",
+    "htmx.org": "2.0.11",
+    "tailwindcss": "4.3.5"
   }
 }

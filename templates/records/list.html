@@ -6,8 +6,18 @@
       hx-get="{% url 'records:list' %}" hx-target="#record-table" hx-trigger="input changed delay:400ms from:#id_q, change from:select, submit" hx-push-url="true">
   <div class="flex-1 min-w-56"><label class="label" for="id_q">Tìm số hiệu (gốc hoặc kết quả)</label>{{ form.q }}</div>
   <div><label class="label" for="id_department">Phòng chủ trì</label>{{ form.department }}</div>
+  <div><label class="label" for="id_folder">Nhóm hồ sơ</label>{{ form.folder }}</div>
   <div><label class="label" for="id_status">Trạng thái</label>{{ form.status }}</div>
+  <div><label class="label" for="id_assignee">Người xử lý</label>{{ form.assignee }}</div>
+  <div><label class="label" for="id_creator">Người tạo</label>{{ form.creator }}</div>
+  <div><label class="label" for="id_due_from">Hạn từ</label>{{ form.due_from }}</div>
+  <div><label class="label" for="id_due_to">Hạn đến</label>{{ form.due_to }}</div>
+  <div class="flex items-center gap-4 pb-1">
+    <label class="flex items-center gap-1.5 text-sm" for="id_assigned_to_me">{{ form.assigned_to_me }} Giao cho tôi</label>
+    <label class="flex items-center gap-1.5 text-sm" for="id_shared_with_me">{{ form.shared_with_me }} Chia sẻ với tôi</label>
+  </div>
   <button class="btn-secondary">Lọc</button>
+  <a class="link text-sm pb-2" href="{% url 'records:list' %}">Xóa bộ lọc</a>
 </form>
 <div id="record-table">{% include "records/_list_table.html" %}</div>
 {% endblock %}

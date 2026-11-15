@@ -1,5 +1,7 @@
 from django.urls import path
 
+from apps.organization import folder_views
+
 from . import views
 
 app_name = "records"
@@ -13,4 +15,7 @@ urlpatterns = [
     path("<uuid:pk>/nguoi-xu-ly/", views.update_assignment, name="assignment"),
     path("<uuid:pk>/theo-doi/", views.update_watchers, name="watchers"),
     path("<uuid:pk>/han/", views.update_deadline, name="deadline"),
+    path("<uuid:pk>/chia-se/", folder_views.share_record, name="share"),
+    path("<uuid:pk>/chia-se/<int:share_id>/thu-hoi/", folder_views.unshare_record, name="unshare"),
+    path("<uuid:pk>/nhom/", folder_views.set_folder, name="set_folder"),
 ]

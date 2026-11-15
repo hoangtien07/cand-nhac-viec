@@ -10,6 +10,7 @@ urlpatterns = [
     path("", include("apps.accounts.urls")),
     path("healthz/", healthz, name="healthz"),
     path("ho-so/", include("apps.records.urls")),
+    path("nhom-ho-so/", include("apps.organization.folder_urls")),
     path("thong-bao/", include("apps.notifications.urls")),
     path("bao-cao/", include("apps.reports.urls")),
     path("quan-tri/", include("apps.accounts.admin_urls")),

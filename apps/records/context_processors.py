@@ -9,6 +9,7 @@ _NAV = {
     "dashboard": "home",
     "records:create": "create",
     "records": "records",
+    "folders": "folders",
     "reports": "reports",
     "notifications": "notifications",
     "adminpanel": "admin",

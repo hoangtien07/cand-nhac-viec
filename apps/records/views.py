@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -35,7 +36,9 @@ def _require_business(user):
 
 
 def _base_qs(user):
-    return policies.visible_records_queryset(user).select_related("owner_department", "assigner")
+    return policies.visible_records_queryset(user).select_related(
+        "owner_department", "assigner", "folder"
+    )
 
 
 def _get_visible(user, pk):
@@ -92,6 +95,29 @@ def record_list(request):
         qs = dashboard_queries.filter_dashboard_search(qs, form.cleaned_data.get("q"))
         if form.cleaned_data.get("department"):
             qs = qs.filter(owner_department=form.cleaned_data["department"])
+        if form.cleaned_data.get("folder"):
+            qs = qs.filter(folder=form.cleaned_data["folder"])
+        if form.cleaned_data.get("assignee"):
+            qs = qs.filter(
+                assignees__user=form.cleaned_data["assignee"], assignees__is_active=True
+            ).distinct()
+        if form.cleaned_data.get("creator"):
+            qs = qs.filter(created_by=form.cleaned_data["creator"])
+        if form.cleaned_data.get("due_from"):
+            qs = qs.filter(due_at__date__gte=form.cleaned_data["due_from"])
+        if form.cleaned_data.get("due_to"):
+            qs = qs.filter(due_at__date__lte=form.cleaned_data["due_to"])
+        if form.cleaned_data.get("assigned_to_me"):
+            qs = qs.filter(assignees__user=user, assignees__is_active=True).distinct()
+        if form.cleaned_data.get("shared_with_me"):
+            qs = qs.filter(
+                Q(shares__user=user, shares__revoked_at__isnull=True)
+                | Q(
+                    folder__grants__user=user,
+                    folder__grants__revoked_at__isnull=True,
+                    folder__is_archived=False,
+                )
+            ).distinct()
         status = form.cleaned_data.get("status")
         if status == "OPEN":
             qs = qs.filter(status=RecordStatus.OPEN)
@@ -169,14 +195,25 @@ def _user_names(unit_id, ids):
 
 
 def _audit_rows(record):
+    from apps.organization.models import WorkFolder
+
     events = list(AuditEvent.objects.filter(record=record).select_related("actor"))
-    ids = set()
+    ids, folder_ids = set(), set()
     for e in events:
         for key in ("before", "after", "assignees", "watchers"):
             v = e.metadata.get(key)
             if isinstance(v, list):
                 ids.update(v)
+        uid = e.metadata.get("user_id")
+        if isinstance(uid, str):
+            ids.add(uid)
+        for key in ("before_folder_id", "after_folder_id"):
+            if e.metadata.get(key):
+                folder_ids.add(e.metadata[key])
     names = _user_names(record.unit_id, ids)
+    folder_names = {
+        str(f.pk): f.name for f in WorkFolder.objects.filter(pk__in=folder_ids)
+    }
     for e in events:
         md = e.metadata
         if e.action in ("record.assignment_changed", "record.watchers_changed"):
@@ -190,6 +227,13 @@ def _audit_rows(record):
             e.summary = f"Số hiệu: {md.get('code', '')}"
         elif e.action == "record.created":
             e.summary = "Người xử lý: " + ", ".join(names.get(i, "?") for i in md.get("assignees", []))
+        elif e.action in ("record.share_added", "record.share_revoked"):
+            e.summary = f"Người dùng: {names.get(md.get('user_id'), '?')}"
+        elif e.action == "record.folder_moved":
+            e.summary = "{} → {}".format(
+                folder_names.get(md.get("before_folder_id"), "—"),
+                folder_names.get(md.get("after_folder_id"), "—"),
+            )
         elif e.action in ("reminder.generated", "notification.resolved"):
             label = NotificationType(md["type"]).label if md.get("type") in NotificationType.values else ""
             label = label or _RESOLVE_REASONS.get(md.get("reason"), "")
@@ -199,7 +243,37 @@ def _audit_rows(record):
     return events
 
 
+def _access_reasons(user, record):
+    """Why THIS viewer can open this record (DECISIONS §6: show the reason, never leak)."""
+    from apps.organization.folder_policies import can_view_folder
+    from apps.organization.models import FolderGrant
+
+    reasons = []
+    if user.role == "LEADER":
+        reasons.append("Lãnh đạo đơn vị")
+    if record.created_by_id == user.pk or record.assigner_id == user.pk:
+        reasons.append("Bạn tạo/giao hồ sơ này")
+    if record.assignees.filter(user=user, is_active=True).exists():
+        reasons.append("Bạn đang được giao xử lý")
+    elif record.watchers.filter(user=user, is_active=True).exists():
+        reasons.append("Bạn đang theo dõi hồ sơ")
+    if record.shares.filter(user=user, revoked_at__isnull=True).exists():
+        reasons.append("Hồ sơ được chia sẻ trực tiếp cho bạn")
+    if record.folder_id and FolderGrant.objects.filter(
+        folder_id=record.folder_id, user=user, revoked_at__isnull=True
+    ).exists():
+        reasons.append("Bạn là thành viên nhóm hồ sơ chứa hồ sơ này")
+    elif record.owner_department_id in policies.managed_department_ids(user):
+        reasons.append("Hồ sơ thuộc phòng/đội bạn quản lý")
+    if not reasons:
+        reasons.append("Hồ sơ thuộc phạm vi quản lý của bạn")
+    return reasons, can_view_folder(user, record.folder) if record.folder_id else False
+
+
 def _detail_context(request, record, **extra):
+    from apps.organization.folder_forms import RecordFolderForm, RecordShareForm
+    from apps.organization.folder_policies import movable_folders
+
     user = request.user
     now = db_now()
     attach_state([record], now)
@@ -213,6 +287,9 @@ def _detail_context(request, record, **extra):
         "can_watchers": policies.can_manage_watchers(user, record),
         "can_deadline": policies.can_edit_deadline(user, record),
     }
+    can_share = policies.can_share_record(user, record)
+    reasons, can_open_folder = _access_reasons(user, record)
+    movable = list(movable_folders(user, record)) if policies.manages_record(user, record) else []
     ctx = {
         "record": record,
         "now": now,
@@ -222,8 +299,21 @@ def _detail_context(request, record, **extra):
         "results": ResultReference.objects.filter(record=record).select_related("submitted_by"),
         "audit_events": _audit_rows(record) if policies.can_view_audit(user, record) else [],
         "submit_form": SubmitResultForm(),
+        "can_share": can_share,
+        "access_reasons": reasons,
+        "can_open_folder": can_open_folder,
+        "movable_folders": movable,
         **perms,
     }
+    if can_share:
+        ctx["shares"] = (
+            record.shares.filter(revoked_at__isnull=True)
+            .select_related("user__department", "granted_by")
+            .order_by("user__full_name")
+        )
+        ctx["share_form"] = RecordShareForm(user, record)
+    if movable:
+        ctx["folder_form"] = RecordFolderForm(user, record, initial={"folder": record.folder_id})
     if perms["can_assign"]:
         ctx["assignment_form"] = AssignmentForm(
             user, record, initial={"assignees": [a.user_id for a in active_assignees]}

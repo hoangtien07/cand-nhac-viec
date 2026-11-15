@@ -18,6 +18,13 @@ class AuditAction(models.TextChoices):
     USER_CHANGED = "user.changed", "Sửa tài khoản"
     USER_ROLE_CHANGED = "user.role_changed", "Đổi vai trò"
     DEPARTMENT_CHANGED = "department.changed", "Thay đổi phòng/đội"
+    FOLDER_CREATED = "folder.created", "Tạo nhóm hồ sơ"
+    FOLDER_RENAMED = "folder.renamed", "Đổi tên nhóm hồ sơ"
+    FOLDER_GRANT_ADDED = "folder.grant_added", "Thêm thành viên nhóm"
+    FOLDER_GRANT_REVOKED = "folder.grant_revoked", "Thu hồi thành viên nhóm"
+    RECORD_SHARE_ADDED = "record.share_added", "Chia sẻ hồ sơ"
+    RECORD_SHARE_REVOKED = "record.share_revoked", "Thu hồi chia sẻ hồ sơ"
+    RECORD_FOLDER_MOVED = "record.folder_moved", "Chuyển hồ sơ sang nhóm khác"
 
 
 class AppendOnlyQuerySet(models.QuerySet):

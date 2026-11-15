@@ -166,6 +166,7 @@
   /* ---------- Existing primitives (kept for forms/detail/list) ---------- */
   .card { background: var(--po-surface); border: 1px solid var(--po-border); border-radius: var(--po-radius-card);
     box-shadow: var(--po-shadow-card); padding: 20px; }
+  .po-chart { position: relative; height: 16rem; }
   .section-h { @apply text-lg font-semibold px-4 py-3 border-b; border-color: var(--po-border); }
   .label { @apply block font-medium mb-1; }
   .input, form input:not([type=checkbox]):not([type=hidden]):not([type=radio]), form select {
