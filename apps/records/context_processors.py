@@ -3,6 +3,7 @@
 import re
 
 from . import policies
+from .ui_state import get_active_work_year, work_year_choices
 
 _NAV = {
     "dashboard": "home",
@@ -37,6 +38,12 @@ def ui_shell(request):
     if not user or not user.is_authenticated:
         return {}
     nav_key = _nav_key(request)
+    year_ctx = {}
+    if user.is_business_user:
+        year_ctx = {
+            "active_work_year": get_active_work_year(request),
+            "work_year_choices": work_year_choices(),
+        }
     unit_name = user.unit.name if user.unit_id else ""
     return {
         "current_user_initials": initials(user.full_name),
@@ -44,4 +51,5 @@ def ui_shell(request):
         "current_unit_label": unit_name,
         "can_create_record": user.is_business_user and policies.creatable_departments(user).exists(),
         **{f"nav_is_{k}": nav_key == k for k in set(_NAV.values())},
+        **year_ctx,
     }

@@ -122,6 +122,10 @@
   .po-footer-item strong { font-weight: 600; }
   .po-footer-sep { width: 1px; height: 24px; background: var(--po-border); }
   .po-footer-note { display: flex; align-items: center; gap: 8px; margin: 0 0 0 auto; color: var(--po-muted); font-size: 14px; }
+  .po-year-apply { min-height: 36px; padding: 4px 12px; border-radius: var(--po-radius-control); border: 1px solid var(--po-border);
+    background: #fff; font-weight: 600; color: var(--po-info); cursor: pointer; }
+  .po-year-apply:hover { background: #eef2f9; }
+  .po-year-apply:focus-visible, .po-year-select:focus-visible { outline: 3px solid var(--po-info); outline-offset: 1px; }
   .po-year-select { width: auto !important; min-height: 36px; padding: 4px 28px 4px 10px !important; font-weight: 600; border-color: var(--po-border) !important; }
 
   @media (min-width: 1024px) {
@@ -138,7 +142,10 @@
     .po-footer-note { margin-left: 0; }
   }
   @media (max-width: 767px) {
-    .po-header { gap: 8px; padding: 0 10px; }
+    .po-header { gap: 4px; padding: 0 8px; }
+    .po-header-actions { gap: 2px; }
+    .po-brand { gap: 6px; min-width: 0; }
+    .po-brand-long { display: none; }
     .po-brand-mark { width: 34px; height: 34px; }
     .po-brand-name { font-size: 18px; }
     .po-demo-badge { font-size: 11px; padding: 1px 6px; }

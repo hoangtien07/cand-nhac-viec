@@ -2,9 +2,10 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
@@ -25,6 +26,7 @@ from .forms import (
 from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
+from .ui_state import SESSION_KEY, parse_work_year
 
 BUSINESS_DENIED = "Tài khoản quản trị kỹ thuật không được xem hồ sơ nghiệp vụ."
 
@@ -76,6 +78,20 @@ def dashboard(request):
         "can_create": policies.creatable_departments(user).exists(),
     }
     return render(request, "records/dashboard.html", ctx)
+
+
+@require_POST
+def set_work_year(request):
+    """Stores the view filter only; never touches the user's unit/department or permissions."""
+    _require_business(request.user)
+    year = parse_work_year(request.POST.get("year"))
+    if year is None:
+        return HttpResponseBadRequest("Năm làm việc không hợp lệ.")
+    request.session[SESSION_KEY] = year
+    nxt = request.POST.get("next", "")
+    if nxt.startswith("/") and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+        return redirect(nxt.split("?", 1)[0].split("#", 1)[0])
+    return redirect("dashboard")
 
 
 @require_GET
