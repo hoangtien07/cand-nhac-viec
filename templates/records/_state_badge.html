@@ -1,0 +1,1 @@
+{% if r.deadline_state == "done" %}<span class="badge badge-done">Đã hoàn thành</span>{% elif r.deadline_state == "overdue" %}<span class="badge badge-overdue">Quá hạn</span>{% elif r.deadline_state == "due_soon" %}<span class="badge badge-soon">Sắp đến hạn</span>{% else %}<span class="badge badge-open">Đang xử lý</span>{% endif %}

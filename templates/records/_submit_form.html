@@ -1,0 +1,11 @@
+{% if can_submit %}
+<section class="card border-2 border-blue-800" aria-labelledby="h-submit">
+  <h2 id="h-submit" class="text-lg font-semibold mb-1">Nộp số hiệu kết quả</h2>
+  <p class="text-sm text-slate-600 mb-3">{% if record.status == "OPEN" %}Nhập số hiệu văn bản/hồ sơ kết quả. Hồ sơ sẽ <strong>hoàn thành ngay</strong> khi nộp số hiệu đầu tiên.{% else %}Hồ sơ đã hoàn thành. Bạn vẫn có thể bổ sung số hiệu khác.{% endif %}</p>
+  <form method="post" action="{% url 'records:submit' record.pk %}" hx-post="{% url 'records:submit' record.pk %}" hx-target="#submit-box" class="space-y-3" novalidate>{% csrf_token %}
+    {% include "_field.html" with f=submit_form.code %}
+    <p class="text-sm text-slate-600">Thời gian nộp do hệ thống ghi nhận tự động.</p>
+    <button class="btn-primary w-full">Tiếp tục</button>
+  </form>
+</section>
+{% endif %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Báo cáo{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-1">Báo cáo tổng hợp</h1>
+<p class="text-slate-600 mb-4">Phạm vi: {{ scope }} · Số liệu tại {{ now|date:"d/m/Y H:i" }}</p>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="card"><div class="dt">Đang xử lý</div><div class="text-3xl font-bold">{{ totals.open }}</div></div>
+  <div class="card"><div class="dt">Quá hạn</div><div class="text-3xl font-bold text-red-700">{{ totals.overdue }}</div></div>
+  <div class="card"><div class="dt">Sắp đến hạn</div><div class="text-3xl font-bold text-amber-700">{{ totals.due_soon }}</div></div>
+  <div class="card"><div class="dt">Đã hoàn thành</div><div class="text-3xl font-bold text-green-700">{{ totals.done }}</div></div>
+</div>
+<div class="card p-0 overflow-x-auto"><table class="w-full text-left">
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Phòng/đội chủ trì</th><th class="px-4 py-2">Đang xử lý</th><th class="px-4 py-2">Quá hạn</th><th class="px-4 py-2">Sắp đến hạn</th><th class="px-4 py-2">Đã hoàn thành</th><th class="px-4 py-2">Tổng</th></tr></thead>
+  <tbody class="divide-y">{% for d in by_dept %}<tr><td class="px-4 py-2">{{ d.owner_department__name }}</td><td class="px-4 py-2">{{ d.open }}</td><td class="px-4 py-2">{{ d.overdue }}</td><td class="px-4 py-2">{{ d.due_soon }}</td><td class="px-4 py-2">{{ d.done }}</td><td class="px-4 py-2">{{ d.total }}</td></tr>
+  {% empty %}<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Chưa có số liệu trong phạm vi của bạn.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

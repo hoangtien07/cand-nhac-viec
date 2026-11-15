@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+var/
+staticfiles/
+.env
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+backups/

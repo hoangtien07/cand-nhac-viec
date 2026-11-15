@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% block title %}Không có quyền{% endblock %}
+{% block content %}<div class="card max-w-xl"><h1 class="text-xl font-bold mb-2">Không có quyền truy cập</h1><p>{{ message }}</p>
+<p class="mt-4"><a class="link" href="{% url 'dashboard' %}">Về trang chính</a></p></div>{% endblock %}

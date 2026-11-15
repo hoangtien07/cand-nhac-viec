@@ -1,0 +1,16 @@
+<div class="card p-0 overflow-x-auto">
+<table class="w-full text-left">
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Phòng chủ trì</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th></tr></thead>
+  <tbody class="divide-y">
+  {% for r in page.object_list %}
+  <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' r.pk %}">{{ r.reference_no }}</a></td>
+    <td class="px-4 py-2">{% include "records/_state_badge.html" %}</td><td class="px-4 py-2">{{ r.owner_department.name }}</td>
+    <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td></tr>
+  {% empty %}<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">Không tìm thấy hồ sơ phù hợp trong phạm vi của bạn.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% if page.has_other_pages %}<nav class="flex gap-3 mt-3" aria-label="Phân trang">
+  {% if page.has_previous %}<a class="link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page.previous_page_number }}">← Trước</a>{% endif %}
+  <span>Trang {{ page.number }}/{{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page.next_page_number }}">Sau →</a>{% endif %}
+</nav>{% endif %}
