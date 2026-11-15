@@ -1,0 +1,6 @@
+<section class="card po-home-quick" aria-labelledby="h-quick" data-testid="quick-actions">
+  <div class="po-card-head"><h2 id="h-quick">{% include "components/_icon.html" with name="grid" %}Chức năng nhanh</h2></div>
+  <ul class="po-quick">
+    {% for a in quick_actions %}<li><a href="{{ a.href }}" class="po-quick-item po-quick-{{ forloop.counter }}">{% include "components/_icon.html" with name=a.icon %}<span>{{ a.label }}</span></a></li>{% endfor %}
+  </ul>
+</section>

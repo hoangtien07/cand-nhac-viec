@@ -193,6 +193,30 @@ def reminders_for(user, year, now, limit=3):
     return items, qs.values("record_id").distinct().count()
 
 
+def quick_actions(user):
+    """Shortcuts the backend actually permits; disabled entries are never rendered."""
+    dash = reverse("dashboard")
+    actions = [
+        (
+            "Tạo hồ sơ công việc",
+            "plus-square",
+            reverse("records:create"),
+            policies.creatable_departments(user).exists(),
+        ),
+        ("Danh sách hồ sơ", "layers", reverse("records:list"), user.is_business_user),
+        (
+            "Nộp kết quả (số hiệu)",
+            "upload",
+            dash + query_string({}, tab="all") + "#dashboard-work",
+            user.is_business_user,
+        ),
+        ("Báo cáo thống kê", "bar-chart", reverse("reports:report"), policies.can_view_reports(user)),
+        ("Thông báo", "bell", reverse("notifications:inbox"), user.is_business_user),
+        ("Quản lý người dùng", "users", reverse("adminpanel:home"), user.is_sys_admin),
+    ]
+    return [{"label": a, "icon": i, "href": h, "enabled": bool(e)} for a, i, h, e in actions if e]
+
+
 def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", due="", month=""):
     tab = tab if tab in TABS else "all"
     q = (q or "").strip()[:64]
@@ -267,4 +291,5 @@ def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", d
         "has_filters": bool(q or dept or due_day),
         "reset_href": path + query_string({"tab": state["tab"], "month": state["month"]}),
         "can_create": policies.creatable_departments(user).exists(),
+        "quick_actions": quick_actions(user),
     }

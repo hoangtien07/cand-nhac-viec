@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -14,7 +13,6 @@ from apps.audit.models import AuditEvent
 from apps.notifications.models import NotificationType
 
 from . import dashboard_queries, policies, services
-from .codes import normalize_code
 from .forms import (
     AssignmentForm,
     DeadlineForm,
@@ -26,7 +24,7 @@ from .forms import (
 from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
-from .ui_state import SESSION_KEY, get_active_work_year, parse_work_year
+from .ui_state import SESSION_KEY, filter_created_in_work_year, get_active_work_year, parse_work_year
 
 BUSINESS_DENIED = "Tài khoản quản trị kỹ thuật không được xem hồ sơ nghiệp vụ."
 
@@ -89,18 +87,9 @@ def record_list(request):
     _require_business(user)
     now = db_now()
     form = RecordFilterForm(user, request.GET or None)
-    qs = _base_qs(user)
+    qs = filter_created_in_work_year(_base_qs(user), get_active_work_year(request))
     if form.is_valid():
-        q = form.cleaned_data.get("q")
-        if q:
-            try:
-                needle = normalize_code(q)
-            except ValueError:
-                needle = q.strip().casefold()
-            result_match = ResultReference.objects.filter(normalized_code__contains=needle).values(
-                "record_id"
-            )
-            qs = qs.filter(Q(reference_no_normalized__contains=needle) | Q(pk__in=result_match))
+        qs = dashboard_queries.filter_dashboard_search(qs, form.cleaned_data.get("q"))
         if form.cleaned_data.get("department"):
             qs = qs.filter(owner_department=form.cleaned_data["department"])
         status = form.cleaned_data.get("status")
@@ -114,7 +103,18 @@ def record_list(request):
             qs = due_soon(qs, now)
     page = Paginator(qs.order_by("status", "due_at"), 25).get_page(request.GET.get("page"))
     page.object_list = attach_state(page.object_list, now)
-    ctx = {"form": form, "page": page, "can_create": policies.creatable_departments(user).exists()}
+    state = {k: v for k, v in request.GET.items() if k != "page"}
+    ctx = {
+        "form": form,
+        "page": page,
+        "can_create": policies.creatable_departments(user).exists(),
+        "prev_href": dashboard_queries.query_string(state, page=page.previous_page_number())
+        if page.has_previous()
+        else "",
+        "next_href": dashboard_queries.query_string(state, page=page.next_page_number())
+        if page.has_next()
+        else "",
+    }
     template = "records/_list_table.html" if request.htmx else "records/list.html"
     return render(request, template, ctx)
 
