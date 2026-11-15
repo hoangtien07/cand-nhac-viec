@@ -10,6 +10,7 @@ from django_htmx.http import HttpResponseClientRedirect
 
 from apps.accounts.models import User
 from apps.audit.models import AuditEvent
+from apps.notifications.models import NotificationType
 
 from . import policies, services
 from .codes import normalize_code
@@ -151,6 +152,13 @@ def record_create(request):
     return render(request, "records/create.html", {"form": form}, status=400 if form.errors else 200)
 
 
+_RESOLVE_REASONS = {
+    "record_done": "Hồ sơ đã hoàn thành",
+    "assignee_removed": "Người xử lý bị thu hồi",
+    "deadline_changed": "Đổi hạn xử lý",
+}
+
+
 def _user_names(unit_id, ids):
     return {str(u.pk): u.full_name for u in User.objects.filter(unit_id=unit_id, pk__in=ids)}
 
@@ -178,7 +186,9 @@ def _audit_rows(record):
         elif e.action == "record.created":
             e.summary = "Người xử lý: " + ", ".join(names.get(i, "?") for i in md.get("assignees", []))
         elif e.action in ("reminder.generated", "notification.resolved"):
-            e.summary = f"{md.get('type', md.get('reason', ''))} · {md.get('count', '')} thông báo"
+            label = NotificationType(md["type"]).label if md.get("type") in NotificationType.values else ""
+            label = label or _RESOLVE_REASONS.get(md.get("reason"), "")
+            e.summary = f"{label} · {md.get('count', '')} thông báo"
         else:
             e.summary = ""
     return events

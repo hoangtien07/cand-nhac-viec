@@ -18,6 +18,7 @@ dev = [
     "pytest-django>=4.14",
     "pip-audit>=2.10",
     "ruff>=0.14",
+    "playwright>=1.50",
 ]
 
 [tool.uv]
@@ -29,12 +30,15 @@ python_files = ["test_*.py"]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 filterwarnings = ["ignore:No directory at:UserWarning"]
-markers = ["concurrency: real PostgreSQL multi-connection race tests"]
+markers = [
+    "concurrency: real PostgreSQL multi-connection race tests",
+    "e2e: browser flow against a running stack (needs E2E_BASE_URL)",
+]
 
 [tool.ruff]
 line-length = 110
 target-version = "py312"
-extend-exclude = ["*/migrations/*"]
+extend-exclude = ["*/migrations/*", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "DJ"]

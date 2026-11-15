@@ -1,0 +1,16 @@
+{
+	auto_https disable_redirects
+	admin off
+}
+https://localhost:8443 {
+	tls internal
+	encode gzip
+	header {
+		-Server
+		Referrer-Policy same-origin
+		X-Content-Type-Options nosniff
+	}
+	reverse_proxy web:8000 {
+		header_up X-Forwarded-Proto https
+	}
+}
