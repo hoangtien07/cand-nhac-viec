@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Now
@@ -32,6 +33,14 @@ class WorkRecord(models.Model):
     )
     created_at = models.DateTimeField(db_default=Now(), editable=False)
     updated_at = models.DateTimeField(db_default=Now())
+    folder = models.ForeignKey(
+        "organization.WorkFolder",
+        verbose_name="Nhóm hồ sơ",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="records",
+    )
 
     class Meta:
         ordering = ["due_at"]
@@ -56,6 +65,17 @@ class WorkRecord(models.Model):
     @property
     def is_open(self):
         return self.status == RecordStatus.OPEN
+
+    def clean(self):
+        super().clean()
+        # v1 (ADR-002): a record's folder must share its unit AND owner department.
+        if self.folder_id and (
+            self.folder.unit_id != self.unit_id
+            or self.folder.owner_department_id != self.owner_department_id
+        ):
+            raise ValidationError(
+                {"folder": "Nhóm hồ sơ phải cùng đơn vị và cùng phòng chủ trì với hồ sơ."}
+            )
 
 
 class RecordAssignee(models.Model):
@@ -97,3 +117,49 @@ class ResultReference(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["record", "normalized_code"], name="uniq_result_code_per_record")
         ]
+
+
+class ShareAccess(models.TextChoices):
+    # v1 has VIEWER only (DECISIONS §2): a direct share never grants submit/edit/assign rights.
+    VIEWER = "VIEWER", "Chỉ xem"
+
+
+class RecordShare(models.Model):
+    """Explicit single-record read grant. Soft-revoked via revoked_at; never hard-deleted."""
+
+    record = models.ForeignKey(WorkRecord, on_delete=models.PROTECT, related_name="shares")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="record_shares"
+    )
+    access = models.CharField(max_length=20, choices=ShareAccess.choices, default=ShareAccess.VIEWER)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(db_default=Now(), editable=False)
+    revoked_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["record", "user"],
+                condition=Q(revoked_at__isnull=True),
+                name="uniq_active_record_share",
+            )
+        ]
+        indexes = [models.Index(fields=["user", "revoked_at"])]
+
+    @property
+    def is_active(self):
+        return self.revoked_at is None
+
+    def clean(self):
+        super().clean()
+        if self.record_id and self.user_id and self.user.unit_id != self.record.unit_id:
+            raise ValidationError({"user": "Người được chia sẻ phải thuộc cùng đơn vị."})
+
+    def revoke(self):
+        if self.revoked_at is not None:
+            return
+        type(self).objects.filter(pk=self.pk, revoked_at__isnull=True).update(revoked_at=Now())
+        self.refresh_from_db()
