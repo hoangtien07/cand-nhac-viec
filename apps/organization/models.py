@@ -73,9 +73,7 @@ class WorkFolder(models.Model):
     name = models.CharField("Tên nhóm hồ sơ", max_length=200)
     name_normalized = models.CharField(max_length=200, editable=False)
     description_short = models.CharField("Mô tả ngắn", max_length=300, blank=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
-    )
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(db_default=Now(), editable=False)
     updated_at = models.DateTimeField(db_default=Now())
@@ -101,27 +99,17 @@ class WorkFolder(models.Model):
 
     def clean(self):
         super().clean()
-        if (
-            self.owner_department_id
-            and self.unit_id
-            and self.owner_department.unit_id != self.unit_id
-        ):
-            raise ValidationError(
-                {"owner_department": "Phòng/đội sở hữu phải thuộc cùng đơn vị với nhóm."}
-            )
+        if self.owner_department_id and self.unit_id and self.owner_department.unit_id != self.unit_id:
+            raise ValidationError({"owner_department": "Phòng/đội sở hữu phải thuộc cùng đơn vị với nhóm."})
 
 
 class FolderGrant(models.Model):
     """Explicit same-unit folder membership. Soft-revoked via revoked_at; never hard-deleted."""
 
     folder = models.ForeignKey(WorkFolder, on_delete=models.PROTECT, related_name="grants")
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="folder_grants"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="folder_grants")
     role = models.CharField(max_length=20, choices=FolderRole.choices, default=FolderRole.VIEWER)
-    granted_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
-    )
+    granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     created_at = models.DateTimeField(db_default=Now(), editable=False)
     revoked_at = models.DateTimeField(null=True, blank=True, editable=False)
 

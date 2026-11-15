@@ -114,15 +114,9 @@ class RecordFilterForm(forms.Form):
     assignee = forms.ModelChoiceField(
         label="Người xử lý", queryset=None, required=False, empty_label="Tất cả"
     )
-    creator = forms.ModelChoiceField(
-        label="Người tạo", queryset=None, required=False, empty_label="Tất cả"
-    )
-    due_from = forms.DateField(
-        label="Hạn từ", required=False, widget=forms.DateInput(attrs={"type": "date"})
-    )
-    due_to = forms.DateField(
-        label="Hạn đến", required=False, widget=forms.DateInput(attrs={"type": "date"})
-    )
+    creator = forms.ModelChoiceField(label="Người tạo", queryset=None, required=False, empty_label="Tất cả")
+    due_from = forms.DateField(label="Hạn từ", required=False, widget=forms.DateInput(attrs={"type": "date"}))
+    due_to = forms.DateField(label="Hạn đến", required=False, widget=forms.DateInput(attrs={"type": "date"}))
     assigned_to_me = forms.BooleanField(label="Giao cho tôi", required=False)
     shared_with_me = forms.BooleanField(label="Chia sẻ với tôi", required=False)
 

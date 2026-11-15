@@ -8,9 +8,7 @@ from .models import FolderRole, WorkFolder
 
 class FolderCreateForm(forms.Form):
     name = forms.CharField(label="Tên nhóm hồ sơ", max_length=200)
-    owner_department = forms.ModelChoiceField(
-        label="Phòng/đội sở hữu", queryset=None, empty_label=None
-    )
+    owner_department = forms.ModelChoiceField(label="Phòng/đội sở hữu", queryset=None, empty_label=None)
     description_short = forms.CharField(
         label="Mô tả ngắn (không bắt buộc)",
         max_length=300,
@@ -36,8 +34,8 @@ class FolderGrantForm(forms.Form):
         self.fields["user"].queryset = folder_policies.grantable_users(actor, folder).order_by(
             "department__name", "full_name"
         )
-        self.fields["user"].label_from_instance = (
-            lambda u: f"{u.full_name} · {u.department.name if u.department_id else '—'}"
+        self.fields["user"].label_from_instance = lambda u: (
+            f"{u.full_name} · {u.department.name if u.department_id else '—'}"
         )
 
 
@@ -49,8 +47,8 @@ class RecordShareForm(forms.Form):
         self.fields["user"].queryset = record_policies.shareable_users(actor, record).order_by(
             "department__name", "full_name"
         )
-        self.fields["user"].label_from_instance = (
-            lambda u: f"{u.full_name} · {u.department.name if u.department_id else '—'}"
+        self.fields["user"].label_from_instance = lambda u: (
+            f"{u.full_name} · {u.department.name if u.department_id else '—'}"
         )
 
 

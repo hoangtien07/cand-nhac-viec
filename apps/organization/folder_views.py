@@ -75,9 +75,7 @@ def index(request):
             qs = qs.none()
     elif tab == "shared":
         qs = qs.filter(
-            Exists(FolderGrant.objects.filter(
-                folder=OuterRef("pk"), user=user, revoked_at__isnull=True
-            ))
+            Exists(FolderGrant.objects.filter(folder=OuterRef("pk"), user=user, revoked_at__isnull=True))
         )
     folders = _annotate_counts(user, qs)
     can_create = record_policies.creatable_departments(user).exists()

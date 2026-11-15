@@ -43,9 +43,7 @@ def create_folder(actor, *, name, owner_department, description_short=""):
         raise ValidationError("Đã tồn tại nhóm hồ sơ cùng tên trong phòng/đội này.") from e
     # The creator receives an explicit MANAGER grant so folder administration never depends
     # on an implicit path (decision recorded in ADR-002).
-    FolderGrant.objects.create(
-        folder=folder, user=actor, role=FolderRole.MANAGER, granted_by=actor
-    )
+    FolderGrant.objects.create(folder=folder, user=actor, role=FolderRole.MANAGER, granted_by=actor)
     audit_append(
         AuditAction.FOLDER_CREATED,
         unit=folder.unit_id,
@@ -87,8 +85,7 @@ def rename_folder(actor, folder_id, name):
 
 def _locked_folder(actor, folder_id):
     folder = (
-        WorkFolder.objects.select_for_update().select_related("owner_department")
-        .filter(pk=folder_id).first()
+        WorkFolder.objects.select_for_update().select_related("owner_department").filter(pk=folder_id).first()
     )
     if folder is None or not policies.can_view_folder(actor, folder):
         raise WorkFolder.DoesNotExist
@@ -105,9 +102,11 @@ def grant_folder(actor, folder_id, user_id, role):
     if role not in FolderRole.values:
         raise ValidationError("Vai trò nhóm không hợp lệ.")
     user = _grantee_or_error(actor, user_id)
-    current = FolderGrant.objects.select_for_update().filter(
-        folder=folder, user=user, revoked_at__isnull=True
-    ).first()
+    current = (
+        FolderGrant.objects.select_for_update()
+        .filter(folder=folder, user=user, revoked_at__isnull=True)
+        .first()
+    )
     if current:
         if current.role == role:
             return current  # idempotent re-grant
@@ -125,9 +124,7 @@ def grant_folder(actor, folder_id, user_id, role):
     # A revoked grant stays as a historical row; re-granting creates a NEW row.
     try:
         with transaction.atomic():
-            grant = FolderGrant.objects.create(
-                folder=folder, user=user, role=role, granted_by=actor
-            )
+            grant = FolderGrant.objects.create(folder=folder, user=user, role=role, granted_by=actor)
     except IntegrityError:
         return FolderGrant.objects.get(folder=folder, user=user, revoked_at__isnull=True)
     audit_append(
@@ -144,8 +141,7 @@ def grant_folder(actor, folder_id, user_id, role):
 @transaction.atomic
 def revoke_folder_grant(actor, grant_id):
     grant = (
-        FolderGrant.objects.select_for_update().select_related("folder", "user")
-        .filter(pk=grant_id).first()
+        FolderGrant.objects.select_for_update().select_related("folder", "user").filter(pk=grant_id).first()
     )
     if grant is None:
         raise FolderGrant.DoesNotExist
@@ -205,8 +201,7 @@ def share_record(actor, record_id, user_id):
 @transaction.atomic
 def revoke_record_share(actor, share_id):
     share = (
-        RecordShare.objects.select_for_update().select_related("record", "user")
-        .filter(pk=share_id).first()
+        RecordShare.objects.select_for_update().select_related("record", "user").filter(pk=share_id).first()
     )
     if share is None:
         raise RecordShare.DoesNotExist
@@ -235,9 +230,7 @@ def move_record(actor, record_id, folder_id):
         raise WorkRecord.DoesNotExist
     folder = None
     if folder_id is not None:
-        folder = (
-            WorkFolder.objects.select_for_update().filter(pk=folder_id, is_archived=False).first()
-        )
+        folder = WorkFolder.objects.select_for_update().filter(pk=folder_id, is_archived=False).first()
         if folder is None:
             raise WorkFolder.DoesNotExist
     record_policies.require(
@@ -247,9 +240,7 @@ def move_record(actor, record_id, folder_id):
     before = record.folder_id
     if before == (folder.pk if folder else None):
         return record
-    WorkRecord.objects.filter(pk=record.pk).update(
-        folder=folder, updated_at=Now()
-    )
+    WorkRecord.objects.filter(pk=record.pk).update(folder=folder, updated_at=Now())
     record.refresh_from_db()
     audit_append(
         AuditAction.RECORD_FOLDER_MOVED,

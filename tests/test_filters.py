@@ -1,4 +1,5 @@
 """Advanced record-list filters: folder, assignee, creator, due range, flags, reset."""
+
 import pytest
 
 from apps.organization import folder_services
@@ -43,9 +44,7 @@ def test_filter_due_date_range(org, client_for):
     today = local_date(db_now())
     make_record(org.mgr1, org.d1, [org.o1], ref="FLT-D1", days=0)
     make_record(org.mgr1, org.d1, [org.o1], ref="FLT-D2", days=10)
-    res = client_for(org.mgr1).get(
-        "/ho-so/", {"due_from": today.isoformat(), "due_to": today.isoformat()}
-    )
+    res = client_for(org.mgr1).get("/ho-so/", {"due_from": today.isoformat(), "due_to": today.isoformat()})
     body = res.content.decode()
     assert "FLT-D1" in body
     assert "FLT-D2" not in body

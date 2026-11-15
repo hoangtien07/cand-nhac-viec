@@ -12,9 +12,7 @@ from .test_folder_models import make_folder
 
 
 def actions(unit, **flt):
-    return list(
-        AuditEvent.objects.filter(unit=unit, **flt).values_list("action", flat=True)
-    )
+    return list(AuditEvent.objects.filter(unit=unit, **flt).values_list("action", flat=True))
 
 
 @pytest.mark.django_db

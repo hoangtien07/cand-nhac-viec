@@ -177,8 +177,9 @@ def test_cross_unit_urls_and_queries_deny_everything(org):
     with pytest.raises((PermissionDenied, ValidationError)):
         folder_services.grant_folder(org.bleader, fb.pk, org.o1.pk, FolderRole.VIEWER)
     with pytest.raises((PermissionDenied, ValidationError)):
-        folder_services.grant_folder(org.mgr1, make_folder(org.ua, org.d1, org.mgr1).pk,
-                                     org.b1.pk, FolderRole.VIEWER)
+        folder_services.grant_folder(
+            org.mgr1, make_folder(org.ua, org.d1, org.mgr1).pk, org.b1.pk, FolderRole.VIEWER
+        )
 
 
 @pytest.mark.django_db
@@ -222,8 +223,8 @@ def test_can_share_record_rules(org):
 def test_can_create_record_in_folder_respects_org_policy(org):
     """ASSUMPTION-F3: dept-B contributor may NOT create records owned by dept A."""
     folder = make_folder(org.ua, org.d1, org.mgr1)
-    grant(folder, org.o2, FolderRole.CONTRIBUTOR)   # dept B contributor
-    grant(folder, org.o1, FolderRole.CONTRIBUTOR)   # dept A contributor
+    grant(folder, org.o2, FolderRole.CONTRIBUTOR)  # dept B contributor
+    grant(folder, org.o1, FolderRole.CONTRIBUTOR)  # dept A contributor
     assert not can_create_record_in_folder(org.o2, folder)
     assert can_create_record_in_folder(org.mgr1, folder)
     assert can_create_record_in_folder(org.o1, folder)  # same dept as folder owner

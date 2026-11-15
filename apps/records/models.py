@@ -70,12 +70,9 @@ class WorkRecord(models.Model):
         super().clean()
         # v1 (ADR-002): a record's folder must share its unit AND owner department.
         if self.folder_id and (
-            self.folder.unit_id != self.unit_id
-            or self.folder.owner_department_id != self.owner_department_id
+            self.folder.unit_id != self.unit_id or self.folder.owner_department_id != self.owner_department_id
         ):
-            raise ValidationError(
-                {"folder": "Nhóm hồ sơ phải cùng đơn vị và cùng phòng chủ trì với hồ sơ."}
-            )
+            raise ValidationError({"folder": "Nhóm hồ sơ phải cùng đơn vị và cùng phòng chủ trì với hồ sơ."})
 
 
 class RecordAssignee(models.Model):
@@ -128,13 +125,9 @@ class RecordShare(models.Model):
     """Explicit single-record read grant. Soft-revoked via revoked_at; never hard-deleted."""
 
     record = models.ForeignKey(WorkRecord, on_delete=models.PROTECT, related_name="shares")
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="record_shares"
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="record_shares")
     access = models.CharField(max_length=20, choices=ShareAccess.choices, default=ShareAccess.VIEWER)
-    granted_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
-    )
+    granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     created_at = models.DateTimeField(db_default=Now(), editable=False)
     revoked_at = models.DateTimeField(null=True, blank=True, editable=False)
 

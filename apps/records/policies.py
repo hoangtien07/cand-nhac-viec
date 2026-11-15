@@ -202,9 +202,9 @@ def shareable_users(user, record):
 
     if not can_share_record(user, record):
         return User.objects.none()
-    return User.objects.filter(
-        unit_id=user.unit_id, is_active=True, role__in=BUSINESS_ROLES
-    ).select_related("department")
+    return User.objects.filter(unit_id=user.unit_id, is_active=True, role__in=BUSINESS_ROLES).select_related(
+        "department"
+    )
 
 
 def can_submit_result(user, record):

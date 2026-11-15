@@ -35,9 +35,7 @@ def visible_folders_queryset(user):
     qs = WorkFolder.objects.filter(unit_id=user.unit_id, is_archived=False)
     if user.role == Role.LEADER:
         return qs
-    q = Q(Exists(FolderGrant.objects.filter(
-        folder=OuterRef("pk"), user=user, revoked_at__isnull=True
-    )))
+    q = Q(Exists(FolderGrant.objects.filter(folder=OuterRef("pk"), user=user, revoked_at__isnull=True)))
     dept_ids = record_policies.managed_department_ids(user)
     if dept_ids:
         q |= Q(owner_department_id__in=dept_ids)
@@ -87,9 +85,7 @@ def can_create_folder(user, owner_department):
 def can_create_record_in_folder(user, folder):
     """ASSUMPTION-F3 (ADR-002): folder membership alone never grants record creation — the
     organization's existing create policy for the owner department must still allow it."""
-    return can_view_folder(user, folder) and record_policies.can_create_record(
-        user, folder.owner_department
-    )
+    return can_view_folder(user, folder) and record_policies.can_create_record(user, folder.owner_department)
 
 
 def can_move_record(user, record, folder):
@@ -115,9 +111,13 @@ def movable_folders(user, record):
     )
     if user.role == Role.LEADER:
         return qs
-    q = Q(Exists(FolderGrant.objects.filter(
-        folder=OuterRef("pk"), user=user, revoked_at__isnull=True, role=FolderRole.MANAGER
-    )))
+    q = Q(
+        Exists(
+            FolderGrant.objects.filter(
+                folder=OuterRef("pk"), user=user, revoked_at__isnull=True, role=FolderRole.MANAGER
+            )
+        )
+    )
     dept_ids = record_policies.managed_department_ids(user)
     if dept_ids:
         q |= Q(owner_department_id__in=dept_ids)
@@ -130,8 +130,6 @@ def grantable_users(user, folder):
 
     if not can_manage_folder_grants(user, folder):
         return User.objects.none()
-    return User.objects.filter(
-        unit_id=user.unit_id, is_active=True, role__in=BUSINESS_ROLES
-    ).exclude(
+    return User.objects.filter(unit_id=user.unit_id, is_active=True, role__in=BUSINESS_ROLES).exclude(
         pk__in=FolderGrant.objects.filter(folder=folder, revoked_at__isnull=True).values("user_id")
     )

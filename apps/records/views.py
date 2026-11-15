@@ -36,9 +36,7 @@ def _require_business(user):
 
 
 def _base_qs(user):
-    return policies.visible_records_queryset(user).select_related(
-        "owner_department", "assigner", "folder"
-    )
+    return policies.visible_records_queryset(user).select_related("owner_department", "assigner", "folder")
 
 
 def _get_visible(user, pk):
@@ -211,9 +209,7 @@ def _audit_rows(record):
             if e.metadata.get(key):
                 folder_ids.add(e.metadata[key])
     names = _user_names(record.unit_id, ids)
-    folder_names = {
-        str(f.pk): f.name for f in WorkFolder.objects.filter(pk__in=folder_ids)
-    }
+    folder_names = {str(f.pk): f.name for f in WorkFolder.objects.filter(pk__in=folder_ids)}
     for e in events:
         md = e.metadata
         if e.action in ("record.assignment_changed", "record.watchers_changed"):
@@ -259,9 +255,12 @@ def _access_reasons(user, record):
         reasons.append("Bạn đang theo dõi hồ sơ")
     if record.shares.filter(user=user, revoked_at__isnull=True).exists():
         reasons.append("Hồ sơ được chia sẻ trực tiếp cho bạn")
-    if record.folder_id and FolderGrant.objects.filter(
-        folder_id=record.folder_id, user=user, revoked_at__isnull=True
-    ).exists():
+    if (
+        record.folder_id
+        and FolderGrant.objects.filter(
+            folder_id=record.folder_id, user=user, revoked_at__isnull=True
+        ).exists()
+    ):
         reasons.append("Bạn là thành viên nhóm hồ sơ chứa hồ sơ này")
     elif record.owner_department_id in policies.managed_department_ids(user):
         reasons.append("Hồ sơ thuộc phòng/đội bạn quản lý")

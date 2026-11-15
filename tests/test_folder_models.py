@@ -11,9 +11,7 @@ from .conftest import make_record
 
 
 def make_folder(unit, dept, creator, name="Nhóm A", **kw):
-    return WorkFolder.objects.create(
-        unit=unit, owner_department=dept, name=name, created_by=creator, **kw
-    )
+    return WorkFolder.objects.create(unit=unit, owner_department=dept, name=name, created_by=creator, **kw)
 
 
 @pytest.mark.django_db
@@ -51,17 +49,11 @@ def test_archived_folder_frees_name(org):
 @pytest.mark.django_db
 def test_grant_unique_active_and_revoke_keeps_history(org):
     f = make_folder(org.ua, org.d1, org.mgr1)
-    g = FolderGrant.objects.create(
-        folder=f, user=org.o2, role=FolderRole.VIEWER, granted_by=org.mgr1
-    )
+    g = FolderGrant.objects.create(folder=f, user=org.o2, role=FolderRole.VIEWER, granted_by=org.mgr1)
     with pytest.raises(IntegrityError), transaction.atomic():
-        FolderGrant.objects.create(
-            folder=f, user=org.o2, role=FolderRole.MANAGER, granted_by=org.mgr1
-        )
+        FolderGrant.objects.create(folder=f, user=org.o2, role=FolderRole.MANAGER, granted_by=org.mgr1)
     g.revoke()
-    g2 = FolderGrant.objects.create(
-        folder=f, user=org.o2, role=FolderRole.MANAGER, granted_by=org.mgr1
-    )
+    g2 = FolderGrant.objects.create(folder=f, user=org.o2, role=FolderRole.MANAGER, granted_by=org.mgr1)
     assert FolderGrant.objects.filter(folder=f, user=org.o2).count() == 2
     assert g.revoked_at is not None and g2.is_active
 
@@ -110,17 +102,11 @@ def test_record_folder_other_unit_rejected_by_db(org):
 @pytest.mark.django_db
 def test_record_share_unique_active_and_revoke(org):
     rec = make_record(org.mgr1, org.d1, [org.o1], ref="F-4")
-    s = RecordShare.objects.create(
-        record=rec, user=org.o2, access=ShareAccess.VIEWER, granted_by=org.mgr1
-    )
+    s = RecordShare.objects.create(record=rec, user=org.o2, access=ShareAccess.VIEWER, granted_by=org.mgr1)
     with pytest.raises(IntegrityError), transaction.atomic():
-        RecordShare.objects.create(
-            record=rec, user=org.o2, access=ShareAccess.VIEWER, granted_by=org.mgr1
-        )
+        RecordShare.objects.create(record=rec, user=org.o2, access=ShareAccess.VIEWER, granted_by=org.mgr1)
     s.revoke()
-    RecordShare.objects.create(
-        record=rec, user=org.o2, access=ShareAccess.VIEWER, granted_by=org.mgr1
-    )
+    RecordShare.objects.create(record=rec, user=org.o2, access=ShareAccess.VIEWER, granted_by=org.mgr1)
     assert RecordShare.objects.filter(record=rec, user=org.o2).count() == 2
 
 
@@ -137,9 +123,7 @@ def test_record_share_cross_unit_rejected_clean_and_db(org):
 @pytest.mark.django_db
 def test_grants_survive_member_timestamps_are_db(org):
     f = make_folder(org.ua, org.d1, org.mgr1)
-    g = FolderGrant.objects.create(
-        folder=f, user=org.o1, role=FolderRole.VIEWER, granted_by=org.mgr1
-    )
+    g = FolderGrant.objects.create(folder=f, user=org.o1, role=FolderRole.VIEWER, granted_by=org.mgr1)
     assert g.created_at is not None  # db_default Now(), not client input
     assert f.created_at is not None
 
@@ -156,4 +140,3 @@ def test_no_subfolders_one_record_one_folder(org):
     rec.save()
     rec.refresh_from_db()
     assert rec.folder_id == b.pk  # move replaces, never two folders
-
