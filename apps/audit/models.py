@@ -25,6 +25,11 @@ class AuditAction(models.TextChoices):
     RECORD_SHARE_ADDED = "record.share_added", "Chia sẻ hồ sơ"
     RECORD_SHARE_REVOKED = "record.share_revoked", "Thu hồi chia sẻ hồ sơ"
     RECORD_FOLDER_MOVED = "record.folder_moved", "Chuyển hồ sơ sang nhóm khác"
+    RECORD_UPDATED = "record.updated", "Sửa thông tin hồ sơ"
+    RECORD_ARCHIVED = "record.archived", "Lưu trữ hồ sơ"
+    RECORD_RESTORED = "record.restored", "Khôi phục hồ sơ"
+    RESULT_CORRECTED = "result.corrected", "Đính chính số hiệu kết quả"
+    RESULT_REVOKED = "result.revoked", "Hủy hiệu lực số hiệu kết quả"
 
 
 class AppendOnlyQuerySet(models.QuerySet):

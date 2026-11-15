@@ -1,12 +1,22 @@
 <div class="card p-0 overflow-x-auto">
 <table class="w-full text-left">
-  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Phòng chủ trì</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th></tr></thead>
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Phòng chủ trì</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th><th class="px-4 py-2">Thao tác</th></tr></thead>
   <tbody class="divide-y">
   {% for r in page.object_list %}
   <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' r.pk %}">{{ r.reference_no }}</a></td>
     <td class="px-4 py-2">{% include "components/_status_badge.html" %}</td><td class="px-4 py-2">{{ r.owner_department.name }}</td>
-    <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td></tr>
-  {% empty %}<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">Không tìm thấy hồ sơ phù hợp trong phạm vi của bạn.</td></tr>{% endfor %}
+    <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td>
+    <td class="px-4 py-2">
+      <details class="po-menu relative inline-block"><summary class="btn-secondary px-2 py-1 cursor-pointer list-none" aria-label="Thao tác cho {{ r.reference_no }}">⋯</summary>
+        <div class="card absolute right-0 mt-1 z-20 w-48 p-1 shadow-lg">
+          <a class="po-menu-item" href="{% url 'records:detail' r.pk %}">Xem chi tiết</a>
+          {% if r.row_can_edit %}<a class="po-menu-item" href="{% url 'records:edit' r.pk %}">Sửa hồ sơ</a>{% endif %}
+          {% if r.row_can_submit %}<a class="po-menu-item" href="{% url 'records:detail' r.pk %}#nop-ket-qua">Nộp kết quả</a>{% endif %}
+          {% if r.row_can_archive %}<a class="po-menu-item text-red-700" href="{% url 'records:detail' r.pk %}#h-archive">Lưu trữ hồ sơ</a>{% endif %}
+        </div>
+      </details>
+    </td></tr>
+  {% empty %}<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Không tìm thấy hồ sơ phù hợp trong phạm vi của bạn.</td></tr>{% endfor %}
   </tbody>
 </table></div>
 {% url 'records:list' as list_url %}{% include "components/_pagination.html" with base_path=list_url hx_target="#record-table" %}

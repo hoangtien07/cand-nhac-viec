@@ -278,7 +278,7 @@ def set_folder(request, pk):
     user = request.user
     _require_business(user)
     record = _visible_record(user, pk)
-    if not record_policies.manages_record(user, record):
+    if record.archived_at is not None or not record_policies.manages_record(user, record):
         raise PermissionDenied("Bạn không có quyền đổi nhóm hồ sơ của hồ sơ này.")
     form = RecordFolderForm(user, record, request.POST)
     if form.is_valid():

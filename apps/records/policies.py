@@ -85,7 +85,7 @@ def report_records_queryset(user):
     Watch-only records are excluded from reports (matrix: watcher 'Xem báo cáo: Không mặc định')."""
     if not _business(user):
         return WorkRecord.objects.none()
-    qs = WorkRecord.objects.filter(unit_id=user.unit_id)
+    qs = WorkRecord.objects.filter(unit_id=user.unit_id, archived_at__isnull=True)
     if user.role == Role.LEADER:
         return qs
     q = _participant_q(user)
@@ -162,16 +162,50 @@ def _manages_record(user, record):
     )
 
 
+def _editable(user, record):
+    return record.status == RecordStatus.OPEN and record.archived_at is None and _manages_record(user, record)
+
+
 def can_manage_assignment(user, record):
-    return record.status == RecordStatus.OPEN and _manages_record(user, record)
+    return _editable(user, record)
 
 
 def can_edit_deadline(user, record):
-    return record.status == RecordStatus.OPEN and _manages_record(user, record)
+    return _editable(user, record)
 
 
 def can_manage_watchers(user, record):
-    return record.status == RecordStatus.OPEN and _manages_record(user, record)
+    return _editable(user, record)
+
+
+def can_edit_record_metadata(user, record):
+    """Edit of reference_no / owner_department / folder / deadline / people — OPEN, not archived,
+    and inside the actor's managed scope (deny-by-default otherwise)."""
+    return _editable(user, record)
+
+
+def can_archive_record(user, record):
+    """Archive replaces hard delete: OPEN records with no submitted results only."""
+    return (
+        record.status == RecordStatus.OPEN
+        and record.archived_at is None
+        and _manages_record(user, record)
+        and not record.results.exists()
+    )
+
+
+def can_restore_record(user, record):
+    return record.archived_at is not None and _manages_record(user, record)
+
+
+def can_correct_result(user, record, result):
+    """Only the original submitter who is STILL an active assignee may correct/revoke their
+    own result code. Watchers, share/folder-grant viewers and managers get no such right."""
+    if not _business(user) or record.unit_id != user.unit_id or record.archived_at is not None:
+        return False
+    if result.record_id != record.pk or result.submitted_by_id != user.pk:
+        return False
+    return RecordAssignee.objects.filter(record=record, user=user, is_active=True).exists()
 
 
 def manages_record(user, record):
@@ -182,6 +216,8 @@ def can_share_record(user, record):
     """ASSUMPTION-F2 (ADR-002): a VIEWER share needs record-management authority OR an active
     MANAGER grant on the record's folder. A share never grants submit/edit/assign rights."""
     if not _business(user) or record.unit_id != user.unit_id:
+        return False
+    if record.archived_at is not None:
         return False
     if _manages_record(user, record):
         return True
@@ -210,6 +246,8 @@ def shareable_users(user, record):
 def can_submit_result(user, record):
     """Only an active assignee may submit; leader/manager roles add nothing (ARCHITECTURE §4)."""
     if not _business(user) or record.unit_id != user.unit_id:
+        return False
+    if record.archived_at is not None:
         return False
     return RecordAssignee.objects.filter(record=record, user=user, is_active=True).exists()
 

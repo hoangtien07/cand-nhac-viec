@@ -41,6 +41,15 @@ class WorkRecord(models.Model):
         blank=True,
         related_name="records",
     )
+    archived_at = models.DateTimeField(null=True, blank=True, editable=False)
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    archive_reason = models.CharField("Lý do lưu trữ", max_length=300, blank=True)
 
     class Meta:
         ordering = ["due_at"]
@@ -57,6 +66,13 @@ class WorkRecord(models.Model):
                 ),
                 name="record_completion_consistent",
             ),
+            models.CheckConstraint(
+                condition=(
+                    Q(archived_at__isnull=True, archived_by__isnull=True)
+                    | Q(archived_at__isnull=False, archived_by__isnull=False)
+                ),
+                name="record_archive_consistent",
+            ),
         ]
 
     def __str__(self):
@@ -65,6 +81,10 @@ class WorkRecord(models.Model):
     @property
     def is_open(self):
         return self.status == RecordStatus.OPEN
+
+    @property
+    def is_archived(self):
+        return self.archived_at is not None
 
     def clean(self):
         super().clean()
@@ -113,6 +133,54 @@ class ResultReference(models.Model):
         ordering = ["submitted_at", "id"]
         constraints = [
             models.UniqueConstraint(fields=["record", "normalized_code"], name="uniq_result_code_per_record")
+        ]
+
+    @property
+    def correction(self):
+        """The single correction event for this result, or None (prefetch 'corrections')."""
+        return self.corrections.first()
+
+    @property
+    def effective_status(self):
+        c = self.correction
+        if c is None:
+            return "Có hiệu lực"
+        return "Đã được thay thế" if c.kind == CorrectionKind.CORRECT else "Đã hủy hiệu lực"
+
+
+class CorrectionKind(models.TextChoices):
+    CORRECT = "CORRECT", "Đính chính"
+    REVOKE = "REVOKE", "Hủy hiệu lực"
+
+
+class ResultCorrection(models.Model):
+    """Append-only business correction of an immutable ResultReference.
+
+    The original result row is never updated or deleted — the same PostgreSQL
+    immutability trigger covers this table too. `replacement` (CORRECT only) is the
+    new ResultReference that takes effect; the old one stays in history.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    result = models.ForeignKey(ResultReference, on_delete=models.PROTECT, related_name="corrections")
+    kind = models.CharField(max_length=10, choices=CorrectionKind.choices)
+    replacement = models.ForeignKey(
+        ResultReference, on_delete=models.PROTECT, null=True, blank=True, related_name="supersedes"
+    )
+    reason = models.CharField("Lý do", max_length=300)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(db_default=Now(), editable=False)
+
+    class Meta:
+        ordering = ["created_at", "pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["result"], name="uniq_correction_per_result"),
+            models.CheckConstraint(
+                condition=(
+                    Q(kind="CORRECT", replacement__isnull=False) | Q(kind="REVOKE", replacement__isnull=True)
+                ),
+                name="correction_replacement_consistent",
+            ),
         ]
 
 

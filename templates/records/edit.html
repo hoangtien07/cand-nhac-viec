@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Sửa hồ sơ {{ record.reference_no }}{% endblock %}
+{% block content %}
+<nav class="text-sm mb-2"><a class="link" href="{% url 'records:detail' record.pk %}">← Hồ sơ {{ record.reference_no }}</a></nav>
+<h1 class="text-2xl font-bold mb-4">Sửa hồ sơ {{ record.reference_no }}</h1>
+{% if form.non_field_errors %}<div class="msg msg-error mb-3" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+<form method="post" class="card space-y-4 max-w-3xl">{% csrf_token %}
+  {% include "_field.html" with f=form.reference_no %}
+  <div class="grid sm:grid-cols-2 gap-4">
+    {% include "_field.html" with f=form.owner_department %}
+    {% include "_field.html" with f=form.folder %}
+  </div>
+  {% include "_field.html" with f=form.due_date %}
+  <div class="grid sm:grid-cols-2 gap-4">
+    {% include "_field.html" with f=form.assignees %}
+    {% include "_field.html" with f=form.watchers %}
+  </div>
+  <p class="text-sm text-slate-600">Chỉ sửa được khi hồ sơ đang mở. Mọi thay đổi được ghi vào lịch sử hồ sơ.</p>
+  <div class="flex gap-3">
+    <button class="btn-primary">Lưu thay đổi</button>
+    <a class="btn-secondary" href="{% url 'records:detail' record.pk %}">Hủy</a>
+  </div>
+</form>
+{% endblock %}

@@ -11,7 +11,15 @@ from apps.audit.services import audit_append
 
 from . import policies
 from .codes import InvalidCode, clean_display_code, normalize_code
-from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
+from .models import (
+    CorrectionKind,
+    RecordAssignee,
+    RecordStatus,
+    RecordWatcher,
+    ResultCorrection,
+    ResultReference,
+    WorkRecord,
+)
 from .timeutils import due_at_for_date
 
 
@@ -235,3 +243,196 @@ def submit_result_reference(actor, record_id, code):
 
                 resolve_record_notifications(record, actor=actor, reason="record_done")
         return SubmitOutcome(result, created=True, completed_record=completed)
+
+
+def _record_audit(actor, record, action, **meta):
+    audit_append(
+        action, unit=record.unit_id, actor=actor, record=record, reference_no=record.reference_no, **meta
+    )
+
+
+@transaction.atomic
+def update_reference_no(actor, record_id, reference_no):
+    record = _lock(record_id, actor)
+    policies.require(policies.can_edit_record_metadata(actor, record))
+    try:
+        display = clean_display_code(reference_no)
+    except InvalidCode as e:
+        raise ValidationError(str(e)) from e
+    if display == record.reference_no:
+        return record
+    before = record.reference_no
+    WorkRecord.objects.filter(pk=record.pk).update(
+        reference_no=display,
+        reference_no_normalized=normalize_code(display),
+        updated_at=Now(),
+    )
+    record.refresh_from_db()
+    _record_audit(
+        actor,
+        record,
+        AuditAction.RECORD_UPDATED,
+        field="reference_no",
+        before=before,
+        after=display,
+    )
+    return record
+
+
+@transaction.atomic
+def update_owner_department(actor, record_id, department):
+    """Owner-dept reassignment stays inside the actor's creatable scope — no cross-unit move and
+    no self-escalation to another department the actor could not create in."""
+    record = _lock(record_id, actor)
+    policies.require(policies.can_edit_record_metadata(actor, record))
+    if department.pk == record.owner_department_id:
+        return record
+    if department.unit_id != record.unit_id or not department.is_active:
+        raise ValidationError("Phòng chủ trì không hợp lệ.")
+    policies.require(
+        policies.creatable_departments(actor).filter(pk=department.pk).exists(),
+        "Bạn không có quyền chuyển hồ sơ sang phòng này.",
+    )
+    if record.folder_id and record.folder.owner_department_id != department.pk:
+        raise ValidationError("Hồ sơ đang thuộc nhóm hồ sơ của phòng khác; hãy chuyển nhóm hồ sơ trước.")
+    before = record.owner_department.name
+    WorkRecord.objects.filter(pk=record.pk).update(owner_department=department, updated_at=Now())
+    record.refresh_from_db()
+    _record_audit(
+        actor,
+        record,
+        AuditAction.RECORD_UPDATED,
+        field="owner_department",
+        before=before,
+        after=department.name,
+    )
+    return record
+
+
+@transaction.atomic
+def archive_record(actor, record_id, reason):
+    """Archive replaces hard delete (CONTEXT): OPEN + no results + managed scope only."""
+    from apps.notifications.services import resolve_record_notifications
+
+    record = _lock(record_id, actor)
+    policies.require(policies.can_archive_record(actor, record))
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError("Cần nhập lý do lưu trữ.")
+    WorkRecord.objects.filter(pk=record.pk).update(
+        archived_at=Now(),
+        archived_by=actor,
+        archive_reason=reason[:300],
+        updated_at=Now(),
+    )
+    record.refresh_from_db()
+    _record_audit(actor, record, AuditAction.RECORD_ARCHIVED, reason=reason[:300])
+    resolve_record_notifications(record, actor=actor, reason="record_archived")
+    return record
+
+
+@transaction.atomic
+def restore_record(actor, record_id):
+    record = _lock(record_id, actor)
+    policies.require(policies.can_restore_record(actor, record))
+    before_reason = record.archive_reason
+    WorkRecord.objects.filter(pk=record.pk).update(
+        archived_at=None, archived_by=None, archive_reason="", updated_at=Now()
+    )
+    record.refresh_from_db()
+    _record_audit(actor, record, AuditAction.RECORD_RESTORED, archived_reason=before_reason)
+    return record
+
+
+def _locked_result(record, result_id):
+    result = record.results.select_for_update().filter(pk=result_id).first()
+    if result is None:
+        raise ResultReference.DoesNotExist
+    return result
+
+
+def _require_uncorrected(result):
+    if result.corrections.exists():
+        raise ValidationError("Số hiệu này đã được đính chính hoặc hủy hiệu lực trước đó.")
+
+
+@transaction.atomic
+def correct_result_reference(actor, record_id, result_id, new_code, reason):
+    """Append-only correction (CONTEXT H03 kept): original row stays, a replacement
+    ResultReference is created and linked through a ResultCorrection event."""
+    record = _lock(record_id, actor)
+    result = _locked_result(record, result_id)
+    policies.require(policies.can_correct_result(actor, record, result))
+    _require_uncorrected(result)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError("Cần nhập lý do đính chính.")
+    try:
+        display = clean_display_code(new_code)
+    except InvalidCode as e:
+        raise ValidationError(str(e)) from e
+    normalized = normalize_code(display)
+    if ResultReference.objects.filter(record=record, normalized_code=normalized).exists():
+        raise ValidationError("Số hiệu thay thế đã tồn tại trên hồ sơ này.")
+    replacement = ResultReference.objects.create(
+        record=record, code=display, normalized_code=normalized, submitted_by=actor
+    )
+    try:
+        with transaction.atomic():
+            ResultCorrection.objects.create(
+                result=result,
+                kind=CorrectionKind.CORRECT,
+                replacement=replacement,
+                reason=reason[:300],
+                actor=actor,
+            )
+    except IntegrityError:
+        raise ValidationError(
+            "Số hiệu này vừa được đính chính hoặc hủy hiệu lực bởi thao tác khác."
+        ) from None
+    _record_audit(
+        actor,
+        record,
+        AuditAction.RESULT_CORRECTED,
+        result_id=str(result.pk),
+        before=result.code,
+        after=display,
+        replacement_id=str(replacement.pk),
+        reason=reason[:300],
+    )
+    return replacement
+
+
+@transaction.atomic
+def revoke_result_reference(actor, record_id, result_id, reason):
+    """Marks a result revoked via an append-only event. A DONE record must keep at least one
+    effective result — revoking the last one is refused (use a correction instead)."""
+    record = _lock(record_id, actor)
+    result = _locked_result(record, result_id)
+    policies.require(policies.can_correct_result(actor, record, result))
+    _require_uncorrected(result)
+    reason = (reason or "").strip()
+    if not reason:
+        raise ValidationError("Cần nhập lý do hủy hiệu lực.")
+    if record.status == RecordStatus.DONE and record.results.filter(corrections__isnull=True).count() <= 1:
+        raise ValidationError(
+            "Hồ sơ đã hoàn thành phải giữ ít nhất một số hiệu còn hiệu lực; hãy đính chính thay thế."
+        )
+    try:
+        with transaction.atomic():
+            ResultCorrection.objects.create(
+                result=result, kind=CorrectionKind.REVOKE, reason=reason[:300], actor=actor
+            )
+    except IntegrityError:
+        raise ValidationError(
+            "Số hiệu này vừa được đính chính hoặc hủy hiệu lực bởi thao tác khác."
+        ) from None
+    _record_audit(
+        actor,
+        record,
+        AuditAction.RESULT_REVOKED,
+        result_id=str(result.pk),
+        code=result.code,
+        reason=reason[:300],
+    )
+    return record

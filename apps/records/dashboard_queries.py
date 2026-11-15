@@ -32,7 +32,9 @@ PAGE_SIZE = 8
 
 def assigned_records(user, year):
     """Records where `user` is an active assignee, inside policy scope, created in `year` (VN)."""
-    scoped = policies.visible_records_queryset(user).filter(assignees__user=user, assignees__is_active=True)
+    scoped = policies.visible_records_queryset(user).filter(
+        assignees__user=user, assignees__is_active=True, archived_at__isnull=True
+    )
     scoped = filter_created_in_work_year(scoped, year)
     return WorkRecord.objects.filter(pk__in=scoped.values("pk"))
 

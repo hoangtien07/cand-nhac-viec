@@ -30,10 +30,7 @@ def test_login_my_work_submit_done(login, viewport):
     expect(page.get_by_role("heading", name=f"Hồ sơ {ref}")).to_be_visible()
     code = f"KQ-E2E-{tag.upper()}"
     page.get_by_role("textbox", name="Số hiệu kết quả").fill(code)
-    page.get_by_role("button", name="Tiếp tục").click()
-    expect(page.get_by_role("heading", name="Xác nhận nộp số hiệu")).to_be_visible()
-    page.screenshot(path=OUT / f"2-confirm-{tag}.png", full_page=True)
-    page.get_by_role("button", name="Xác nhận nộp").click()
+    page.get_by_role("button", name="Nộp kết quả").click()
     expect(page.get_by_text(re.compile("Hồ sơ đã HOÀN THÀNH"))).to_be_visible()
     expect(page.locator(".badge-done").first).to_contain_text("Đã hoàn thành")
     expect(page.get_by_text(code, exact=True)).to_be_visible()

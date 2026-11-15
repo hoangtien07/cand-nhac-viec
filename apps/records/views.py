@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
@@ -15,10 +16,14 @@ from apps.notifications.models import NotificationType
 
 from . import dashboard_queries, policies, services
 from .forms import (
+    ArchiveForm,
     AssignmentForm,
+    CorrectionForm,
     DeadlineForm,
     RecordCreateForm,
+    RecordEditForm,
     RecordFilterForm,
+    RevokeResultForm,
     SubmitResultForm,
     WatchersForm,
 )
@@ -89,7 +94,10 @@ def record_list(request):
     now = db_now()
     form = RecordFilterForm(user, request.GET or None)
     qs = filter_created_in_work_year(_base_qs(user), get_active_work_year(request))
-    if form.is_valid():
+    form_valid = form.is_valid()
+    archived_view = form_valid and form.cleaned_data.get("status") == "ARCHIVED"
+    qs = qs.filter(archived_at__isnull=not archived_view)
+    if form_valid:
         qs = dashboard_queries.filter_dashboard_search(qs, form.cleaned_data.get("q"))
         if form.cleaned_data.get("department"):
             qs = qs.filter(owner_department=form.cleaned_data["department"])
@@ -127,6 +135,10 @@ def record_list(request):
             qs = due_soon(qs, now)
     page = Paginator(qs.order_by("status", "due_at"), 25).get_page(request.GET.get("page"))
     page.object_list = attach_state(page.object_list, now)
+    for r in page.object_list:
+        r.row_can_edit = policies.can_edit_record_metadata(user, r)
+        r.row_can_submit = policies.can_submit_result(user, r)
+        r.row_can_archive = policies.can_archive_record(user, r)
     state = {k: v for k, v in request.GET.items() if k != "page"}
     ctx = {
         "form": form,
@@ -221,6 +233,16 @@ def _audit_rows(record):
             e.summary = f"{md.get('before', '')} → {md.get('after', '')}"
         elif e.action in ("result.submitted", "record.completed"):
             e.summary = f"Số hiệu: {md.get('code', '')}"
+        elif e.action == "result.corrected":
+            e.summary = f"{md.get('before', '')} → {md.get('after', '')} · {md.get('reason', '')}"
+        elif e.action == "result.revoked":
+            e.summary = f"Số hiệu: {md.get('code', '')} · {md.get('reason', '')}"
+        elif e.action == "record.updated":
+            e.summary = f"{md.get('field', '')}: {md.get('before', '')} → {md.get('after', '')}"
+        elif e.action == "record.archived":
+            e.summary = f"Lý do: {md.get('reason', '')}"
+        elif e.action == "record.restored":
+            e.summary = ""
         elif e.action == "record.created":
             e.summary = "Người xử lý: " + ", ".join(names.get(i, "?") for i in md.get("assignees", []))
         elif e.action in ("record.share_added", "record.share_revoked"):
@@ -285,23 +307,36 @@ def _detail_context(request, record, **extra):
         "can_assign": policies.can_manage_assignment(user, record),
         "can_watchers": policies.can_manage_watchers(user, record),
         "can_deadline": policies.can_edit_deadline(user, record),
+        "can_edit": policies.can_edit_record_metadata(user, record),
+        "can_archive": policies.can_archive_record(user, record),
+        "can_restore": policies.can_restore_record(user, record),
     }
     can_share = policies.can_share_record(user, record)
     reasons, can_open_folder = _access_reasons(user, record)
     movable = list(movable_folders(user, record)) if policies.manages_record(user, record) else []
+    results = list(
+        ResultReference.objects.filter(record=record)
+        .select_related("submitted_by")
+        .prefetch_related("corrections__actor", "corrections__replacement")
+    )
+    for res in results:
+        res.can_correct = policies.can_correct_result(user, record, res)
     ctx = {
         "record": record,
         "now": now,
         "assignees": active_assignees,
         "former_assignees": [a for a in assignees if not a.is_active],
         "watchers": active_watchers,
-        "results": ResultReference.objects.filter(record=record).select_related("submitted_by"),
+        "results": results,
         "audit_events": _audit_rows(record) if policies.can_view_audit(user, record) else [],
         "submit_form": SubmitResultForm(),
         "can_share": can_share,
         "access_reasons": reasons,
         "can_open_folder": can_open_folder,
         "movable_folders": movable,
+        "archive_form": ArchiveForm(),
+        "correction_form": CorrectionForm(),
+        "revoke_form": RevokeResultForm(),
         **perms,
     }
     if can_share:
@@ -347,8 +382,6 @@ def submit_result(request, pk):
         ctx = {"record": record, "submit_form": form, "can_submit": True}
         return render(request, "records/_submit_form.html", ctx, status=400)
     code = form.cleaned_data["code"]
-    if request.POST.get("confirm") != "1":
-        return render(request, "records/submit_confirm.html", {"record": record, "code": code})
     try:
         outcome = services.submit_result_reference(user, record.pk, code)
     except WorkRecord.DoesNotExist:
@@ -432,4 +465,141 @@ def update_deadline(request, pk):
         lambda u, r, cd: services.update_deadline(u, r.pk, cd["due_date"]),
         "Đã cập nhật hạn xử lý.",
         "deadline_form",
+    )
+
+
+@require_http_methods(["GET", "POST"])
+def record_edit(request, pk):
+    """Metadata edit page (spec §3): OPEN + managed scope only; every field change goes through
+    an audited service inside ONE transaction."""
+    user = request.user
+    _require_business(user)
+    record = _get_visible(user, pk)
+    policies.require(policies.can_edit_record_metadata(user, record))
+    if request.method == "POST":
+        form = RecordEditForm(user, record, request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    _apply_edit(user, record, form.cleaned_data)
+            except WorkRecord.DoesNotExist:
+                raise Http404 from None
+            except ValidationError as e:
+                form.add_error(None, e)
+            else:
+                messages.success(request, "Đã cập nhật thông tin hồ sơ.")
+                return redirect("records:detail", pk=record.pk)
+    else:
+        form = RecordEditForm(
+            user,
+            record,
+            initial={
+                "reference_no": record.reference_no,
+                "owner_department": record.owner_department_id,
+                "folder": record.folder_id,
+                "due_date": local_date(record.due_at),
+                "assignees": [a.user_id for a in record.assignees.filter(is_active=True)],
+                "watchers": [w.user_id for w in record.watchers.filter(is_active=True)],
+            },
+        )
+    return render(request, "records/edit.html", {"record": record, "form": form})
+
+
+def _apply_edit(user, record, cd):
+    """Applies form changes through audited services. Order: folder first so an owner-dept move
+    never sees a folder that belongs to the old department."""
+    from apps.organization import folder_services
+
+    new_folder = cd["folder"].pk if cd["folder"] else None
+    if new_folder != record.folder_id:
+        folder_services.move_record(user, record.pk, new_folder)
+    if cd["reference_no"] != record.reference_no:
+        services.update_reference_no(user, record.pk, cd["reference_no"])
+    if cd["owner_department"].pk != record.owner_department_id:
+        services.update_owner_department(user, record.pk, cd["owner_department"])
+    current = sorted(record.assignees.filter(is_active=True).values_list("user_id", flat=True))
+    if sorted(u.pk for u in cd["assignees"]) != current:
+        services.update_assignment(user, record.pk, list(cd["assignees"]))
+    current_w = sorted(record.watchers.filter(is_active=True).values_list("user_id", flat=True))
+    if sorted(u.pk for u in cd["watchers"]) != current_w:
+        services.update_watchers(user, record.pk, list(cd["watchers"]))
+    if cd["due_date"] != local_date(record.due_at):
+        services.update_deadline(user, record.pk, cd["due_date"])
+
+
+@require_POST
+def archive_record(request, pk):
+    user = request.user
+    _require_business(user)
+    record = _get_visible(user, pk)
+    form = ArchiveForm(request.POST)
+    if form.is_valid():
+        try:
+            services.archive_record(user, record.pk, form.cleaned_data["reason"])
+        except WorkRecord.DoesNotExist:
+            raise Http404 from None
+        except ValidationError as e:
+            messages.error(request, "; ".join(e.messages))
+        else:
+            messages.success(request, f"Đã lưu trữ hồ sơ {record.reference_no}.")
+            return redirect("records:list")
+    else:
+        messages.error(request, "Cần nhập lý do lưu trữ.")
+    return redirect("records:detail", pk=record.pk)
+
+
+@require_POST
+def restore_record(request, pk):
+    user = request.user
+    _require_business(user)
+    record = _get_visible(user, pk)
+    try:
+        services.restore_record(user, record.pk)
+    except WorkRecord.DoesNotExist:
+        raise Http404 from None
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, f"Đã khôi phục hồ sơ {record.reference_no}.")
+    return redirect("records:detail", pk=record.pk)
+
+
+def _mutate_result(request, pk, result_id, form_cls, action):
+    user = request.user
+    _require_business(user)
+    record = _get_visible(user, pk)
+    form = form_cls(request.POST)
+    if form.is_valid():
+        try:
+            action(user, record, form.cleaned_data)
+        except ResultReference.DoesNotExist:
+            raise Http404 from None
+        except ValidationError as e:
+            messages.error(request, "; ".join(e.messages))
+        else:
+            messages.success(request, "Đã cập nhật số hiệu kết quả.")
+    else:
+        messages.error(request, "Biểu mẫu không hợp lệ.")
+    return redirect(reverse("records:detail", args=[record.pk]) + "#ket-qua")
+
+
+@require_POST
+def correct_result(request, pk, result_id):
+    return _mutate_result(
+        request,
+        pk,
+        result_id,
+        CorrectionForm,
+        lambda u, r, cd: services.correct_result_reference(u, r.pk, result_id, cd["new_code"], cd["reason"]),
+    )
+
+
+@require_POST
+def revoke_result(request, pk, result_id):
+    return _mutate_result(
+        request,
+        pk,
+        result_id,
+        RevokeResultForm,
+        lambda u, r, cd: services.revoke_result_reference(u, r.pk, result_id, cd["reason"]),
     )
