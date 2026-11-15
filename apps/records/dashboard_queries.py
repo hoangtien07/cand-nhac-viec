@@ -1,21 +1,24 @@
 """Home dashboard dataset. Starts from the policy-scoped queryset; never widens scope."""
 
+import calendar
 import datetime
+import re
 
 from django.core.paginator import Paginator
 from django.db.models import Case, F, Prefetch, Q, Value, When
 from django.http import QueryDict
 from django.urls import reverse
 
+from apps.notifications.queries import actionable, visible_notifications
 from apps.organization.models import Department
 
 from . import policies
 from .codes import normalize_code
 from .context_processors import initials
 from .models import RecordAssignee, RecordStatus, ResultReference, WorkRecord
-from .queries import attach_state, due_soon, due_soon_cutoff, overdue
-from .timeutils import VN_TZ
-from .ui_state import filter_created_in_work_year
+from .queries import attach_state, deadline_state, due_soon, due_soon_cutoff, overdue
+from .timeutils import VN_TZ, local_date
+from .ui_state import filter_created_in_work_year, work_year_bounds
 
 TABS = {
     "all": "Tất cả",
@@ -95,7 +98,102 @@ def _filter_due_day(qs, day):
     return qs.filter(due_at__gte=start, due_at__lt=start + datetime.timedelta(days=1))
 
 
-def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", due=""):
+TONE_PRIORITY = {"overdue": 0, "due_soon": 1, "open": 2, "done": 3}
+TONE_LABEL = {
+    "overdue": "có hồ sơ quá hạn",
+    "due_soon": "có hồ sơ sắp đến hạn",
+    "open": "có hạn xử lý",
+    "done": "đã hoàn thành",
+}
+
+
+def parse_month(value, year):
+    match = re.fullmatch(r"([0-9]{4})-([0-9]{2})", value or "")
+    if match and int(match[1]) == year and 1 <= int(match[2]) <= 12:
+        return int(match[2])
+    return None
+
+
+def _month_start(year, month):
+    return datetime.datetime(year, month, 1, tzinfo=VN_TZ)
+
+
+def deadline_tones(records_qs, year, month, now):
+    """{local due date: most urgent derived state} for one month; one query."""
+    start = _month_start(year, month)
+    end = _month_start(year + month // 12, month % 12 + 1)
+    tones = {}
+    for rec in records_qs.filter(due_at__gte=start, due_at__lt=end).only("pk", "status", "due_at"):
+        day, tone = local_date(rec.due_at), deadline_state(rec, now)
+        if day not in tones or TONE_PRIORITY[tone] < TONE_PRIORITY[tones[day]]:
+            tones[day] = tone
+    return tones
+
+
+def build_calendar(year, month, tones, today, state):
+    weeks = []
+    for week in calendar.Calendar(firstweekday=0).monthdatescalendar(year, month):
+        row = []
+        for day in week:
+            in_month = day.month == month
+            tone = tones.get(day) if in_month else None
+            row.append(
+                {
+                    "date": day,
+                    "in_month": in_month,
+                    "is_today": day == today,
+                    "has_deadline": bool(tone),
+                    "tone": tone or "",
+                    "tone_label": TONE_LABEL.get(tone, ""),
+                    "href": query_string(state, due=day.isoformat(), month=f"{year}-{month:02d}", page="")
+                    if tone
+                    else "",
+                }
+            )
+        weeks.append(row)
+    nav = {**state, "due": "", "page": ""}
+    return {
+        "calendar_weeks": weeks,
+        "calendar_label": f"Tháng {month}, {year}",
+        "calendar_month": (year, month),
+        "calendar_prev_href": query_string(nav, month=f"{year}-{month - 1:02d}") if month > 1 else "",
+        "calendar_next_href": query_string(nav, month=f"{year}-{month + 1:02d}") if month < 12 else "",
+    }
+
+
+def _reminder_phrase(record, today):
+    due_day = local_date(record.due_at)
+    delta = (due_day - today).days
+    if delta < 0:
+        return "overdue", f"đã quá hạn {-delta} ngày"
+    if delta == 0:
+        return "due_soon", "đến hạn hôm nay"
+    return ("due_soon" if delta <= 1 else "open"), f"đến hạn sau {delta} ngày"
+
+
+def reminders_for(user, year, now, limit=3):
+    """Actionable in-web reminders of THIS recipient, still-visible records only, one per record."""
+    start, end = work_year_bounds(year)
+    qs = (
+        actionable(visible_notifications(user))
+        .filter(record__created_at__gte=start, record__created_at__lt=end)
+        .select_related("record")
+        .order_by("-created_at", "pk")
+    )
+    today = local_date(now)
+    items, seen = [], set()
+    for n in qs[:50]:
+        if n.record_id in seen:
+            continue
+        seen.add(n.record_id)
+        n.tone, n.phrase = _reminder_phrase(n.record, today)
+        items.append(n)
+        if len(items) == limit:
+            break
+    return items, qs.values("record_id").distinct().count()
+
+
+def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", due="", month=""):
     tab = tab if tab in TABS else "all"
     q = (q or "").strip()[:64]
     base = assigned_records(user, year)
@@ -125,14 +223,23 @@ def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", d
     for record in page.object_list:
         record.people = [(initials(a.user.full_name), a.user.full_name) for a in record.active_assignees]
 
+    month_no = parse_month(month, year)
     state = {
         "tab": "" if tab == "all" else tab,
         "q": q,
         "department": str(dept.pk) if dept else "",
         "due": due_day.isoformat() if due_day else "",
+        "month": f"{year}-{month_no:02d}" if month_no else "",
     }
     path = reverse("dashboard")
+    today = local_date(now)
+    cal_month = month_no or today.month
+    reminders, reminder_count = reminders_for(user, year, now)
     return {
+        **build_calendar(year, cal_month, deadline_tones(base, year, cal_month, now), today, state),
+        "reminders": reminders,
+        "reminder_count": reminder_count,
+        "today": today,
         "now": now,
         "year": year,
         "counts": counts,
@@ -158,6 +265,6 @@ def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", d
         "prev_href": query_string(state, page=page.previous_page_number()) if page.has_previous() else "",
         "next_href": query_string(state, page=page.next_page_number()) if page.has_next() else "",
         "has_filters": bool(q or dept or due_day),
-        "reset_href": path + query_string({"tab": state["tab"]}),
+        "reset_href": path + query_string({"tab": state["tab"], "month": state["month"]}),
         "can_create": policies.creatable_departments(user).exists(),
     }

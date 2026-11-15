@@ -63,6 +63,7 @@ def dashboard(request):
         now=db_now(),
         department=g.get("department", ""),
         due=g.get("due", ""),
+        month=g.get("month", ""),
     )
     partial = request.htmx and request.htmx.target == "dashboard-work"
     return render(request, "records/_dashboard_work.html" if partial else "records/dashboard.html", data)

@@ -1,0 +1,18 @@
+<section class="card po-rail-card" aria-labelledby="h-calendar" data-testid="dashboard-calendar">
+  <div class="po-card-head"><h2 id="h-calendar">{% include "components/_icon.html" with name="calendar" %}Lịch &amp; Nhắc việc</h2></div>
+  <div class="po-cal">
+    <div class="po-cal-nav">
+      {% if calendar_prev_href %}<a class="po-cal-btn" href="{{ calendar_prev_href }}" aria-label="Tháng trước">{% include "components/_icon.html" with name="chevron-left" %}</a>{% else %}<span class="po-cal-btn is-disabled" aria-hidden="true">{% include "components/_icon.html" with name="chevron-left" %}</span>{% endif %}
+      <p class="po-cal-label" aria-live="polite">{{ calendar_label }}</p>
+      {% if calendar_next_href %}<a class="po-cal-btn" href="{{ calendar_next_href }}" aria-label="Tháng sau">{% include "components/_icon.html" with name="chevron-right" %}</a>{% else %}<span class="po-cal-btn is-disabled" aria-hidden="true">{% include "components/_icon.html" with name="chevron-right" %}</span>{% endif %}
+    </div>
+    <table class="po-cal-grid">
+      <caption class="sr-only">Lịch hạn xử lý {{ calendar_label }} của hồ sơ bạn được giao</caption>
+      <thead><tr><th scope="col" abbr="Thứ hai">T2</th><th scope="col" abbr="Thứ ba">T3</th><th scope="col" abbr="Thứ tư">T4</th><th scope="col" abbr="Thứ năm">T5</th><th scope="col" abbr="Thứ sáu">T6</th><th scope="col" abbr="Thứ bảy">T7</th><th scope="col" abbr="Chủ nhật">CN</th></tr></thead>
+      <tbody>{% for week in calendar_weeks %}<tr>{% for d in week %}<td>{% if d.in_month %}{% if d.has_deadline %}<a href="{{ d.href }}" class="po-cal-day tone-{{ d.tone }}{% if d.is_today %} is-today{% endif %}" aria-label="Ngày {{ d.date|date:'d/m/Y' }}: {{ d.tone_label }}"{% if d.is_today %} aria-current="date"{% endif %}>{{ d.date.day }}</a>{% else %}<span class="po-cal-day{% if d.is_today %} is-today{% endif %}"{% if d.is_today %} aria-current="date"{% endif %}>{{ d.date.day }}</span>{% endif %}{% endif %}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table>
+    <ul class="po-cal-legend" aria-label="Chú thích">
+      <li><span class="dot tone-overdue"></span>Quá hạn</li><li><span class="dot tone-due_soon"></span>Sắp đến hạn</li><li><span class="dot tone-open"></span>Có hạn xử lý</li><li><span class="dot tone-done"></span>Đã hoàn thành</li>
+    </ul>
+  </div>
+</section>

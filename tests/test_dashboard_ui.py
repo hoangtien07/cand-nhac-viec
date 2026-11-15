@@ -146,3 +146,90 @@ def test_department_filter_is_scoped(org, client_for):
     assert refs(get(c, department=str(org.d2.pk)).content.decode()) == ["D2-REC"]
     assert sorted(refs(get(c, department=str(org.d3.pk)).content.decode())) == ["D1-REC", "D2-REC"]
     assert sorted(refs(get(c, department="not-a-uuid").content.decode())) == ["D1-REC", "D2-REC"]
+
+
+# ---------- Task 4: calendar + reminder rail ----------
+from apps.notifications.services import remind_record  # noqa: E402
+from apps.records.dashboard_queries import build_calendar  # noqa: E402
+
+
+def _at(day, hour=10):
+    return datetime.datetime.combine(day, datetime.time(hour), tzinfo=VN_TZ)
+
+
+def _marked(resp):
+    return {d["date"] for w in resp.context["calendar_weeks"] for d in w if d["has_deadline"]}
+
+
+def test_calendar_only_uses_visible_assigned_records(org, client_for):
+    mine = make_record(org.leader, org.d1, [org.o1], ref="CAL-MINE", days=1)
+    make_record(org.leader, org.d1, [org.o1b], ref="CAL-OTHER", days=2)
+    make_record(org.bleader, org.d3, [org.b1], ref="CAL-B", days=3)
+    resp = get(client_for(org.o1), month=f"{today().year}-{today().month:02d}")
+    due_day = mine.due_at.astimezone(VN_TZ).date()
+    marked = _marked(resp)
+    assert marked <= {due_day}
+    if due_day.month == today().month:
+        assert marked == {due_day}
+        cell = next(d for w in resp.context["calendar_weeks"] for d in w if d["date"] == due_day)
+        assert f"due={due_day.isoformat()}" in cell["href"]
+        assert refs(client_for(org.o1).get(reverse("dashboard") + cell["href"]).content.decode()) == [
+            "CAL-MINE"
+        ]
+
+
+def test_calendar_handles_month_turn_and_leap_year():
+    cal = build_calendar(2028, 2, {}, datetime.date(2028, 2, 10), {})
+    days = [d["date"] for w in cal["calendar_weeks"] for d in w if d["in_month"]]
+    assert days[0] == datetime.date(2028, 2, 1) and days[-1] == datetime.date(2028, 2, 29)
+    assert all(w[0]["date"].weekday() == 0 for w in cal["calendar_weeks"])
+    assert cal["calendar_label"] == "Tháng 2, 2028"
+    dec = build_calendar(2027, 12, {}, datetime.date(2028, 2, 10), {})
+    assert dec["calendar_next_href"] == "" and "month=2027-11" in dec["calendar_prev_href"]
+    jan = build_calendar(2027, 1, {}, datetime.date(2028, 2, 10), {})
+    assert jan["calendar_prev_href"] == "" and "month=2027-02" in jan["calendar_next_href"]
+
+
+def test_invalid_month_param_falls_back(org, client_for):
+    c = client_for(org.o1)
+    for bad in ("1999-01", "2026-13", "abc", f"{today().year + 1}-01"):
+        resp = get(c, month=bad)
+        assert resp.context["calendar_month"] == (today().year, today().month), bad
+
+
+def test_calendar_no_out_of_year_leak(org, client_for):
+    rec = make_record(org.leader, org.d1, [org.o1], ref="OLD-DUE", days=1)
+    WorkRecord.objects.filter(pk=rec.pk).update(
+        created_at=datetime.datetime(today().year - 1, 3, 1, tzinfo=VN_TZ)
+    )
+    assert _marked(get(client_for(org.o1))) == set()
+
+
+def test_reminder_list_is_recipient_only(org, client_for):
+    rec = make_record(org.leader, org.d1, [org.o1, org.o1b], ref="REM-1", days=1)
+    assert remind_record(rec.pk, now=_at(today())) == 2
+    resp = get(client_for(org.o1))
+    items = resp.context["reminders"]
+    assert [n.recipient_id for n in items] == [org.o1.pk]
+    assert resp.context["reminder_count"] == 1
+    assert 'data-testid="reminder-item"' in resp.content.decode()
+    assert get(client_for(org.b1)).context["reminders"] == []
+    assert get(client_for(org.o2)).context["reminders"] == []
+
+
+def test_done_notification_not_actionable(org, client_for):
+    rec = make_record(org.leader, org.d1, [org.o1], ref="REM-DONE", days=1)
+    remind_record(rec.pk, now=_at(today()))
+    services.submit_result_reference(org.o1, rec.pk, "KQ-REM")
+    resp = get(client_for(org.o1))
+    assert resp.context["reminders"] == [] and resp.context["reminder_count"] == 0
+
+
+def test_rail_queries_are_bounded(org, client_for, django_assert_max_num_queries):
+    for i in range(6):
+        rec = make_record(org.leader, org.d1, [org.o1, org.o1b], ref=f"NQ-{i}", days=1 + i % 3)
+        remind_record(rec.pk, now=_at(today()))
+    c = client_for(org.o1)
+    get(c)
+    with django_assert_max_num_queries(30):
+        get(c)
