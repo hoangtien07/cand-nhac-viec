@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@source "../../templates";
+@source "../../apps";
+
+@layer components {
+  .card { @apply bg-white rounded-lg shadow-sm border border-slate-200 p-5; }
+  .section-h { @apply text-lg font-semibold px-4 py-3 border-b; }
+  .label { @apply block font-medium mb-1; }
+  .input, form input:not([type=checkbox]):not([type=hidden]):not([type=radio]), form select {
+    @apply w-full rounded border border-slate-400 bg-white px-3 py-2 text-[17px] focus:outline-none focus:ring-2 focus:ring-blue-700; }
+  .checklist ul, .checklist > div { @apply max-h-64 overflow-y-auto border border-slate-300 rounded p-2 space-y-1; }
+  .checklist label { @apply flex items-center gap-2 py-1 cursor-pointer; }
+  .checklist input[type=checkbox] { @apply h-5 w-5; }
+  .btn-primary { @apply inline-block rounded bg-blue-800 px-4 py-2 font-semibold text-white hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-700 cursor-pointer text-center; }
+  .btn-secondary { @apply inline-block rounded border border-slate-400 bg-white px-4 py-2 font-medium hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-700 cursor-pointer; }
+  .link { @apply text-blue-800 underline-offset-2 hover:underline; }
+  .nav-link { @apply rounded px-3 py-1.5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white; }
+  .tab { @apply rounded px-3 py-1.5 border border-slate-300 bg-white; }
+  .tab-active { @apply bg-blue-800 text-white border-blue-800; }
+  .badge { @apply inline-block rounded-full px-2.5 py-0.5 text-sm font-medium; }
+  .badge-done { @apply bg-green-100 text-green-900; }
+  .badge-overdue { @apply bg-red-100 text-red-900; }
+  .badge-soon { @apply bg-amber-100 text-amber-900; }
+  .badge-open { @apply bg-slate-200 text-slate-800; }
+  .dt { @apply text-sm text-slate-600; }
+  .msg { @apply rounded border px-4 py-3; }
+  .msg-success { @apply bg-green-50 border-green-300 text-green-900; }
+  .msg-info { @apply bg-blue-50 border-blue-300 text-blue-900; }
+  .msg-warning { @apply bg-amber-50 border-amber-300 text-amber-900; }
+  .msg-error { @apply bg-red-50 border-red-300 text-red-900; }
+}

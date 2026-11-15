@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}Thông báo{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center gap-3 mb-4"><h1 class="text-2xl font-bold">Thông báo nhắc hạn</h1>
+  <form method="post" action="{% url 'notifications:mark_all_read' %}" class="ml-auto">{% csrf_token %}<button class="btn-secondary">Đánh dấu tất cả đã đọc</button></form></div>
+<nav class="flex gap-2 mb-4" aria-label="Lọc thông báo">
+  <a class="tab {% if tab == 'pending' %}tab-active{% endif %}" href="?tab=pending">Cần xử lý</a>
+  <a class="tab {% if tab != 'pending' %}tab-active{% endif %}" href="?tab=all">Tất cả (lịch sử)</a>
+</nav>
+<ul class="card p-0 divide-y">{% for n in page.object_list %}{% include "notifications/_item.html" %}{% empty %}<li class="px-4 py-6 text-slate-500">Không có thông báo.</li>{% endfor %}</ul>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% load static %}<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"400","swap":true},{"code":"[45]..","swap":false,"error":true}],"allowScriptTags":false,"includeIndicatorStyles":false}'>
+  <title>{% block title %}PocketOps{% endblock %} · PocketOps (demo)</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 text-[17px] flex flex-col" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-white p-2 rounded">Bỏ qua tới nội dung</a>
+  {% if user.is_authenticated %}
+  <header class="bg-blue-900 text-white">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+      <a href="{% url 'dashboard' %}" class="font-bold text-lg">PocketOps <span class="text-xs font-normal bg-amber-400 text-slate-900 rounded px-1.5 py-0.5 align-middle">DEMO</span></a>
+      <nav aria-label="Điều hướng chính" class="flex flex-wrap gap-1 text-base">
+        {% if user.is_business_user %}
+        <a class="nav-link" href="{% url 'dashboard' %}">Việc của tôi</a>
+        <a class="nav-link" href="{% url 'records:list' %}">Hồ sơ</a>
+        <a class="nav-link" href="{% url 'notifications:inbox' %}">Thông báo
+          <span hx-get="{% url 'notifications:badge' %}" hx-trigger="every 60s" hx-swap="innerHTML">{% include "notifications/_badge.html" %}</span></a>
+        <a class="nav-link" href="{% url 'reports:report' %}">Báo cáo</a>
+        {% endif %}
+        {% if user.is_sys_admin %}<a class="nav-link" href="{% url 'adminpanel:home' %}">Quản trị</a>{% endif %}
+      </nav>
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        <span>{{ user.full_name }} · {{ user.get_role_display }}{% if user.department %} · {{ user.department.name }}{% endif %}</span>
+        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+          <button class="rounded border border-white/60 px-3 py-1 hover:bg-white/10">Đăng xuất</button>
+        </form>
+      </div>
+    </div>
+  </header>
+  {% endif %}
+  <main id="main" class="max-w-6xl w-full mx-auto px-4 py-6 flex-1">
+    {% if messages %}
+    <div class="space-y-2 mb-4" role="status">
+      {% for m in messages %}<div class="msg msg-{{ m.tags }}">{{ m }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="border-t bg-white text-sm text-slate-600">
+    <div class="max-w-6xl mx-auto px-4 py-3">Bản demo sử dụng dữ liệu giả lập, chưa được tích hợp với hệ thống nghiệp vụ.</div>
+  </footer>
+</body>
+</html>

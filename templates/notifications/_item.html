@@ -1,0 +1,8 @@
+<li class="px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 {% if not n.read_at %}bg-blue-50{% endif %}">
+  <span class="badge {% if n.type == 'OVERDUE' %}badge-overdue{% elif n.type == 'DUE_TODAY' %}badge-soon{% else %}badge-open{% endif %}">{{ n.get_type_display }}</span>
+  <a class="link font-semibold" href="{% url 'records:detail' n.record_id %}">{{ n.record.reference_no }}</a>
+  <span class="text-slate-600">{{ n.record.owner_department.name }} · hạn {{ n.record.due_at|date:"d/m/Y" }}</span>
+  {% if n.resolved_at %}<span class="text-sm text-green-800">Đã giải quyết</span>{% endif %}
+  <span class="ml-auto text-sm text-slate-600">{{ n.created_at|date:"d/m/Y H:i" }}</span>
+  {% if not n.read_at %}<form method="post" action="{% url 'notifications:mark_read' n.pk %}" hx-post="{% url 'notifications:mark_read' n.pk %}" hx-target="closest li" hx-swap="outerHTML">{% csrf_token %}<button class="btn-secondary text-sm py-1">Đánh dấu đã đọc</button></form>{% endif %}
+</li>

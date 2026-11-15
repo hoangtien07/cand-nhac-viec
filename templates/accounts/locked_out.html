@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% block title %}Tạm khóa{% endblock %}
+{% block content %}<div class="max-w-md mx-auto mt-10 card"><h1 class="text-xl font-bold mb-2">Tạm khóa đăng nhập</h1>
+<p>Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút hoặc liên hệ quản trị kỹ thuật.</p>
+<p class="mt-4"><a class="link" href="{% url 'accounts:login' %}">Quay lại đăng nhập</a></p></div>{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}Việc của tôi{% endblock %}
+{% block content %}
+<div class="flex flex-wrap items-center gap-3 mb-6">
+  <h1 class="text-2xl font-bold">Việc của tôi</h1>
+  <form action="{% url 'records:list' %}" method="get" class="flex gap-2 ml-auto" role="search">
+    <label for="dash-q" class="sr-only">Tìm số hiệu</label>
+    <input id="dash-q" class="input w-64" name="q" placeholder="Tìm theo số hiệu…">
+    <button class="btn-secondary">Tìm</button>
+  </form>
+  {% if can_create %}<a class="btn-primary" href="{% url 'records:create' %}">+ Tạo hồ sơ</a>{% endif %}
+</div>
+<div class="grid gap-6 md:grid-cols-2">
+  <section class="card p-0" aria-labelledby="h-overdue"><h2 id="h-overdue" class="section-h text-red-800">Quá hạn ({{ overdue|length }})</h2>
+    <ul class="divide-y">{% include "records/_record_rows.html" with rows=overdue empty="Không có việc quá hạn." %}</ul></section>
+  <section class="card p-0" aria-labelledby="h-soon"><h2 id="h-soon" class="section-h text-amber-800">Sắp đến hạn ({{ due_soon|length }})</h2>
+    <ul class="divide-y">{% include "records/_record_rows.html" with rows=due_soon empty="Không có việc sắp đến hạn." %}</ul></section>
+  <section class="card p-0" aria-labelledby="h-open"><h2 id="h-open" class="section-h">Đang xử lý khác ({{ other_open|length }})</h2>
+    <ul class="divide-y">{% include "records/_record_rows.html" with rows=other_open empty="Không có việc khác." %}</ul></section>
+  <section class="card p-0" aria-labelledby="h-done"><h2 id="h-done" class="section-h text-green-800">Đã hoàn thành gần đây</h2>
+    <ul class="divide-y">{% include "records/_record_rows.html" with rows=recent_done empty="Chưa có hồ sơ hoàn thành." %}</ul></section>
+  <section class="card p-0 md:col-span-2" aria-labelledby="h-mine"><h2 id="h-mine" class="section-h">Hồ sơ tôi tạo/giao đang mở</h2>
+    <ul class="divide-y">{% include "records/_record_rows.html" with rows=assigned_by_me empty="Bạn chưa giao hồ sơ nào đang mở." %}</ul></section>
+</div>
+{% endblock %}

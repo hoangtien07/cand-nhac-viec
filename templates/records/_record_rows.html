@@ -1,0 +1,8 @@
+{% for r in rows %}
+<li><a href="{% url 'records:detail' r.pk %}" class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-slate-50 focus:bg-slate-100">
+  <span class="font-semibold text-blue-900 min-w-40">{{ r.reference_no }}</span>
+  {% include "records/_state_badge.html" %}
+  <span class="text-slate-600">{{ r.owner_department.name }}</span>
+  <span class="ml-auto text-slate-700">Hạn: {{ r.due_at|date:"d/m/Y" }}</span>
+</a></li>
+{% empty %}<li class="px-4 py-3 text-slate-500">{{ empty|default:"Không có hồ sơ." }}</li>{% endfor %}
