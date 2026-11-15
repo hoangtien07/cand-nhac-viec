@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Thông tin cá nhân{% endblock %}
+{% block content %}
+<div class="po-profile">
+  <div class="po-page-head mb-4"><h1>Thông tin cá nhân</h1><p>Thông tin tài khoản đang đăng nhập.</p></div>
+  <section class="card mb-4" aria-labelledby="h-info">
+    <h2 id="h-info" class="text-lg font-semibold mb-3">Tài khoản</h2>
+    <dl data-testid="profile-info">
+      <dt>Họ tên</dt><dd>{{ user.full_name }}</dd>
+      <dt>Tên đăng nhập</dt><dd>{{ user.username }}</dd>
+      <dt>Vai trò</dt><dd>{{ user.get_role_display }}</dd>
+      <dt>Phòng/đội</dt><dd>{{ user.department.name|default:"—" }}</dd>
+      <dt>Đơn vị</dt><dd>{{ user.unit.name|default:"—" }}</dd>
+      <dt>Đăng nhập gần nhất</dt><dd>{{ user.last_login|date:"d/m/Y H:i"|default:"—" }}</dd>
+    </dl>
+    <p class="dt mt-4">Họ tên, vai trò, phòng/đội và đơn vị do quản trị kỹ thuật cập nhật vì được dùng để phân quyền. Nếu thông tin chưa đúng, hãy liên hệ quản trị kỹ thuật của đơn vị.</p>
+  </section>
+  <section class="card" aria-labelledby="h-security">
+    <h2 id="h-security" class="text-lg font-semibold mb-2">Bảo mật</h2>
+    <p class="dt mb-3">Bạn có thể tự đổi mật khẩu đăng nhập.</p>
+    <a class="btn-primary" href="{% url 'accounts:password_change' %}">Đổi mật khẩu</a>
+  </section>
+</div>
+{% endblock %}

@@ -50,3 +50,14 @@ No BLOCKER.
 1. "Năm làm việc" = year of `created_at` (VN time). This is the spec ASSUMPTION; whether it should mean another year (e.g. a fiscal year) is undecided.
 2. Whether the CAND emblem may be used.
 3. Whether to add a "trích yếu" field. This needs a data-classification decision and a migration; it was not done in this round.
+
+## Owner feedback round 1 (2026-11-15 20:10)
+
+| Feedback | Change |
+|---|---|
+| Remove the tab scrollbar | `.po-tabs` now wraps lines (`flex-wrap`) and no longer uses `overflow-x`. |
+| Footer should sit in the right content column, not overlap the sidebar | Grid areas changed to `"sidebar main" "sidebar footer"`. On mobile it is still a single column. |
+| Add a personal-information page | `accounts:profile` (`/tai-khoan/`) is read-only. `accounts:password_change` lets users change their own password and writes the audit event `user.changed` with `change=password_self_service`. Name, role, department and unit cannot be self-edited because they drive authorisation (deny by default). |
+| No standalone notifications page; use the header box | The bell is now a `<details>` dropdown that loads `notifications:inbox` over HTMX, with "Cần xử lý" and "Tất cả" tabs, mark-read and mark-all-read actions, and an out-of-band badge update. A plain GET of `/thong-bao/` redirects to `/?notif=open`, which renders the dropdown already open (works without JS). The page was removed from the sidebar and quick actions. `test_reminders::test_inbox_pending_hides_done_and_mark_read` now calls the endpoint with an HTMX header and keeps its original assertions. |
+
+Re-run after this change: `pytest -m "not e2e"` 120 passed (7 new tests in `test_profile_notifications.py`); e2e on a freshly rebuilt compose stack: 6 passed.

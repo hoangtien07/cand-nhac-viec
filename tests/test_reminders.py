@@ -99,14 +99,15 @@ def test_removed_assignee_stops_receiving(org, rec):
 def test_inbox_pending_hides_done_and_mark_read(org, rec, client_for):
     remind_record(rec.pk, now=at(due(rec) - datetime.timedelta(days=1)))
     c = client_for(org.o1)
-    assert rec.reference_no in c.get("/thong-bao/").content.decode()
+    hx = {"HX-Request": "true"}
+    assert rec.reference_no in c.get("/thong-bao/", headers=hx).content.decode()
     n = Notification.objects.get(recipient=org.o1)
     assert c.post(f"/thong-bao/{n.pk}/da-doc/").status_code in (200, 302)
     n.refresh_from_db()
     assert n.read_at is not None
     services.submit_result_reference(org.o1, rec.pk, "KQ-1")
-    assert rec.reference_no not in c.get("/thong-bao/?tab=pending").content.decode()
-    assert rec.reference_no in c.get("/thong-bao/?tab=all").content.decode()
+    assert rec.reference_no not in c.get("/thong-bao/?tab=pending", headers=hx).content.decode()
+    assert rec.reference_no in c.get("/thong-bao/?tab=all", headers=hx).content.decode()
 
 
 def test_management_command_runs(org):

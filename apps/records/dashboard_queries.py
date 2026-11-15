@@ -211,7 +211,6 @@ def quick_actions(user):
             user.is_business_user,
         ),
         ("Báo cáo thống kê", "bar-chart", reverse("reports:report"), policies.can_view_reports(user)),
-        ("Thông báo", "bell", reverse("notifications:inbox"), user.is_business_user),
         ("Quản lý người dùng", "users", reverse("adminpanel:home"), user.is_sys_admin),
     ]
     return [{"label": a, "icon": i, "href": h, "enabled": bool(e)} for a, i, h, e in actions if e]

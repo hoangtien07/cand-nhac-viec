@@ -42,7 +42,9 @@ def test_home_layout_and_a11y(login, size):
 
     page.keyboard.press("Tab")
     assert page.evaluate("document.activeElement.textContent.trim()") == "Bỏ qua tới nội dung"
-    page.keyboard.press("Tab")  # focus order: skip link -> header (menu toggle on small screens, brand otherwise)
+    page.keyboard.press(
+        "Tab"
+    )  # focus order: skip link -> header (menu toggle on small screens, brand otherwise)
     if w < 1024:
         expect(page.get_by_role("button", name="Mở menu")).to_be_focused()
     else:

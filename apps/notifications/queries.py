@@ -15,3 +15,17 @@ def visible_notifications(user):
 
 def actionable(qs):
     return qs.filter(resolved_at__isnull=True, record__status=RecordStatus.OPEN)
+
+
+def panel_context(user, tab="pending", limit=10):
+    """Data for the header notification dropdown (recipient-only, still-visible records)."""
+    tab = "all" if tab == "all" else "pending"
+    base = visible_notifications(user).select_related("record", "record__owner_department")
+    pending = actionable(base)
+    items = list((pending if tab == "pending" else base).order_by("-created_at", "pk")[: limit + 1])
+    return {
+        "notif_tab": tab,
+        "notif_items": items[:limit],
+        "notif_more": len(items) > limit,
+        "notif_pending_count": pending.count(),
+    }

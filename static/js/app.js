@@ -27,6 +27,15 @@
     if (sidebar && sidebar.classList.contains("is-open")) { setDrawer(false); toggle.focus(); }
   });
   document.addEventListener("click", function (e) {
+    var opener = e.target.closest && e.target.closest("[data-open-popover]");
+    var target = opener && document.querySelector('details[data-testid="' + opener.dataset.openPopover + '"]');
+    if (target) {
+      e.preventDefault();
+      target.open = true;
+      target.querySelector("summary").focus();
+      window.scrollTo({ top: 0 });
+      return;
+    }
     openPopovers().forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
   });
   document.querySelectorAll("details[data-popover]").forEach(function (d) {

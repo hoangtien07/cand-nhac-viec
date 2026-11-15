@@ -5,7 +5,6 @@
       {% url 'records:list' as u %}{% include "components/_nav_item.html" with href=u icon="file-text" label="Hồ sơ công việc" active=nav_is_records %}
       {% if can_create_record %}{% url 'records:create' as u %}{% include "components/_nav_item.html" with href=u icon="plus-square" label="Tạo hồ sơ" active=nav_is_create %}{% endif %}
       {% url 'reports:report' as u %}{% include "components/_nav_item.html" with href=u icon="bar-chart" label="Báo cáo - Thống kê" active=nav_is_reports %}
-      {% url 'notifications:inbox' as u %}{% include "components/_nav_item.html" with href=u icon="bell" label="Thông báo" active=nav_is_notifications badge=unread_notifications %}
     {% endif %}
     {% if user.is_sys_admin %}
       {% url 'adminpanel:home' as u %}{% include "components/_nav_item.html" with href=u icon="shield" label="Quản trị" active=nav_is_admin %}

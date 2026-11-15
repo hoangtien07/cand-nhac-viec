@@ -8,10 +8,14 @@
   <p class="po-header-note">Hệ thống quản lý hồ sơ công việc theo số hiệu</p>
   <div class="po-header-actions">
     {% if user.is_business_user %}
-    <a href="{% url 'notifications:inbox' %}" class="po-icon-btn po-bell" aria-label="Thông báo{% if unread_notifications %}: {{ unread_notifications }} chưa đọc{% endif %}">
-      {% include "components/_icon.html" with name="bell" %}
-      {% if unread_notifications %}<span class="po-count po-count-dot" data-testid="header-unread">{{ unread_notifications }}</span>{% endif %}
-    </a>
+    <details class="po-pop po-notif" data-popover data-testid="header-notifications"{% if notif_open %} open{% endif %}>
+      <summary class="po-icon-btn po-bell" aria-label="Thông báo{% if unread_notifications %}: {{ unread_notifications }} chưa đọc{% endif %}">
+        {% include "components/_icon.html" with name="bell" %}{% include "notifications/_badge.html" %}
+      </summary>
+      <div id="notif-panel" class="po-pop-panel po-notif-panel" hx-get="{% url 'notifications:inbox' %}" hx-trigger="toggle from:closest details" hx-swap="innerHTML">
+        {% if notif_open %}{% include "notifications/_panel.html" %}{% else %}<p class="po-notif-empty">Đang tải thông báo…</p>{% endif %}
+      </div>
+    </details>
     {% endif %}
     <details class="po-pop" data-popover>
       <summary class="po-icon-btn" aria-label="Trợ giúp">{% include "components/_icon.html" with name="help" %}</summary>
@@ -43,6 +47,7 @@
           {% if user.department %}<dt>Phòng/đội</dt><dd>{{ user.department.name }}</dd>{% endif %}
           <dt>Đơn vị</dt><dd>{{ current_unit_label }}</dd>
         </dl>
+        <a class="po-menu-link" href="{% url 'accounts:profile' %}" data-testid="profile-link">{% include "components/_icon.html" with name="users" %}Thông tin cá nhân</a>
         <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
           <button class="btn-secondary w-full justify-center">{% include "components/_icon.html" with name="logout" %} Đăng xuất</button>
         </form>

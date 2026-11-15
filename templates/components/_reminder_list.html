@@ -6,5 +6,5 @@
       <a href="{% url 'records:detail' n.record_id %}"><strong>{{ n.record.reference_no }}</strong> {{ n.phrase }}</a></li>{% endfor %}
   </ul>
   {% else %}<p class="po-rail-empty">Không có nhắc việc cần xử lý.</p>{% endif %}
-  <p class="po-rail-foot"><a class="link" href="{% url 'notifications:inbox' %}">Xem tất cả thông báo</a></p>
+  <p class="po-rail-foot"><a class="link" href="{% url 'dashboard' %}?notif=open" data-open-popover="header-notifications">Xem tất cả thông báo</a></p>
 </section>
