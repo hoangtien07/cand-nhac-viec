@@ -143,7 +143,7 @@
       overflow-y: auto; transform: translateX(-100%); transition: transform 0.2s ease; visibility: hidden; }
     .po-sidebar.is-open { transform: none; visibility: visible; box-shadow: 8px 0 24px rgb(16 40 80 / 0.2); }
     .po-backdrop.is-open { display: block; position: fixed; inset: var(--po-header-height) 0 0 0; z-index: 45; background: rgb(13 34 80 / 0.4); }
-    .po-header-note, .po-header-divider { display: none; }
+    .po-header-note, .po-header-divider, .po-user-text, .po-user-caret, .po-header-sep { display: none; }
     .po-footer-note { margin-left: 0; }
   }
   @media (max-width: 767px) {
@@ -151,6 +151,7 @@
     .po-header-actions { gap: 2px; }
     .po-brand { gap: 6px; min-width: 0; }
     .po-brand-long { display: none; }
+    .po-count-dot { top: 0; right: -4px; }
     .po-brand-mark { width: 34px; height: 34px; }
     .po-brand-name { font-size: 18px; }
     .po-demo-badge { font-size: 11px; padding: 1px 6px; }
@@ -210,12 +211,15 @@
   .po-page-head h1 { font-size: 28px; font-weight: 700; line-height: 1.25; margin: 0; }
   .po-page-head p { margin: 4px 0 0; color: var(--po-muted); font-size: 17px; }
   @media (max-width: 767px) { .po-page-head h1 { font-size: 23px; } .po-page-head p { font-size: 15px; } }
+  @media (max-width: 400px) { .po-brand-mark { display: none; } }
 
   .po-home-main { container-type: inline-size; container-name: pomain; }
   .po-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
   @container pomain (max-width: 900px) { .po-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @container pomain (min-width: 560px) and (max-width: 900px) {
     .po-table th:nth-child(2), .po-table td:nth-child(2) { display: none; }
+    .po-table th, .po-table td { padding-left: 10px; padding-right: 10px; }
+    .po-cell-icon .po-icon { display: none; }
   }
   .po-kpi { display: flex; align-items: center; gap: 16px; min-height: 96px; padding: 16px 18px; border-radius: var(--po-radius-card);
     border: 1px solid; text-decoration: none; color: var(--po-foreground); box-shadow: var(--po-shadow-card); }
