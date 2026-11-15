@@ -1,0 +1,32 @@
+<nav class="po-tabs" aria-label="Lọc theo trạng thái">
+  {% for t in tab_links %}<a href="{{ t.href }}" hx-get="{{ t.href }}" hx-target="#dashboard-work" hx-push-url="true" data-testid="dashboard-tab-{{ t.key }}"{% if t.active %} aria-current="true"{% endif %}>{{ t.label }} ({{ t.count }})</a>{% endfor %}
+</nav>
+<form method="get" action="{% url 'dashboard' %}" class="po-filters" role="search" data-testid="dashboard-filters"
+      hx-get="{% url 'dashboard' %}" hx-target="#dashboard-work" hx-push-url="true" hx-trigger="submit, change from:#dash-dept">
+  {% if tab != "all" %}<input type="hidden" name="tab" value="{{ tab }}">{% endif %}
+  {% if due_day %}<input type="hidden" name="due" value="{{ due_day|date:'Y-m-d' }}">{% endif %}
+  <div class="po-search">{% include "components/_icon.html" with name="search" %}
+    <label class="sr-only" for="dash-q">Tìm theo số hiệu gốc hoặc số hiệu kết quả</label>
+    <input id="dash-q" name="q" value="{{ q }}" maxlength="64" class="input" placeholder="Tìm theo số hiệu gốc hoặc số hiệu kết quả…" autocomplete="off">
+  </div>
+  <label class="sr-only" for="dash-dept">Phòng ban</label>
+  <select id="dash-dept" name="department" class="po-select">
+    <option value="">Phòng ban: Tất cả</option>
+    {% for d in departments %}<option value="{{ d.pk }}"{% if department == d.pk|stringformat:"s" %} selected{% endif %}>{{ d.name }}</option>{% endfor %}
+  </select>
+  <span class="po-chip" title="Trang chủ chỉ hiển thị hồ sơ bạn đang là người xử lý">Người liên quan: Tôi</span>
+  <button class="btn-secondary">{% include "components/_icon.html" with name="search" %}Tìm</button>
+  {% if has_filters %}<a class="link po-reset" href="{{ reset_href }}" hx-get="{{ reset_href }}" hx-target="#dashboard-work" hx-push-url="true">Xóa bộ lọc</a>{% endif %}
+</form>
+{% if due_day %}<p class="po-filter-note">Đang lọc hồ sơ có hạn ngày <strong>{{ due_day|date:"d/m/Y" }}</strong>.</p>{% endif %}
+{% url 'records:list' as list_url %}
+{% if page.object_list %}
+  {% include "components/_record_table.html" with rows=page.object_list caption="Hồ sơ bạn đang được giao xử lý" %}
+{% else %}
+  <div data-testid="dashboard-records">
+  {% if has_filters %}{% include "components/_empty_state.html" with text="Không có hồ sơ phù hợp với bộ lọc." cta_href=reset_href cta_label="Xóa bộ lọc" cta_hx=True testid="dashboard-empty" %}
+  {% else %}{% include "components/_empty_state.html" with text="Bạn không có hồ sơ được giao trong mục này (năm làm việc đang chọn)." cta_href=list_url cta_label="Xem danh sách hồ sơ" testid="dashboard-empty" %}{% endif %}
+  </div>
+{% endif %}
+{% url 'dashboard' as dash_url %}
+{% include "components/_pagination.html" with base_path=dash_url hx_target="#dashboard-work" %}

@@ -2,11 +2,11 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-1">Quản trị kỹ thuật · {{ user.unit.name }}</h1>
 <p class="text-slate-600 mb-6">Quản lý tài khoản, vai trò và phòng/đội. Tài khoản quản trị kỹ thuật không xem được hồ sơ nghiệp vụ.</p>
-<section class="mb-8"><div class="flex items-center mb-2"><h2 class="text-lg font-semibold">Phòng/đội</h2><a class="btn-secondary ml-auto" href="{% url 'adminpanel:department_create' %}">+ Phòng/đội</a></div>
+<section id="phong-ban" class="mb-8"><div class="flex items-center mb-2"><h2 class="text-lg font-semibold">Phòng/đội</h2><a class="btn-secondary ml-auto" href="{% url 'adminpanel:department_create' %}">+ Phòng/đội</a></div>
 <div class="card p-0"><table class="w-full text-left"><thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Tên</th><th class="px-4 py-2">Trưởng phòng</th><th class="px-4 py-2">Trạng thái</th><th></th></tr></thead><tbody class="divide-y">
 {% for d in departments %}<tr><td class="px-4 py-2">{{ d.name }}</td><td class="px-4 py-2">{{ d.manager.full_name|default:"—" }}</td><td class="px-4 py-2">{{ d.is_active|yesno:"Hoạt động,Ngừng" }}</td><td class="px-4 py-2"><a class="link" href="{% url 'adminpanel:department_edit' d.pk %}">Sửa</a></td></tr>{% endfor %}
 </tbody></table></div></section>
-<section><div class="flex items-center mb-2"><h2 class="text-lg font-semibold">Tài khoản</h2><a class="btn-secondary ml-auto" href="{% url 'adminpanel:user_create' %}">+ Tài khoản</a></div>
+<section id="tai-khoan"><div class="flex items-center mb-2"><h2 class="text-lg font-semibold">Tài khoản</h2><a class="btn-secondary ml-auto" href="{% url 'adminpanel:user_create' %}">+ Tài khoản</a></div>
 <div class="card p-0 overflow-x-auto"><table class="w-full text-left"><thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Tên đăng nhập</th><th class="px-4 py-2">Họ tên</th><th class="px-4 py-2">Vai trò</th><th class="px-4 py-2">Phòng/đội</th><th class="px-4 py-2">Trạng thái</th><th></th></tr></thead><tbody class="divide-y">
 {% for u in users %}<tr><td class="px-4 py-2">{{ u.username }}</td><td class="px-4 py-2">{{ u.full_name }}</td><td class="px-4 py-2">{{ u.get_role_display }}</td><td class="px-4 py-2">{{ u.department.name|default:"—" }}</td><td class="px-4 py-2">{{ u.is_active|yesno:"Hoạt động,Đã khóa" }}</td><td class="px-4 py-2"><a class="link" href="{% url 'adminpanel:user_edit' u.pk %}">Sửa</a></td></tr>{% endfor %}
 </tbody></table></div></section>

@@ -1,0 +1,10 @@
+<section class="card po-rail-card" aria-labelledby="h-reminders" data-testid="dashboard-reminders">
+  <div class="po-card-head"><h2 id="h-reminders">{% include "components/_icon.html" with name="bell" cls="po-icon-danger" %}Nhắc việc cần xử lý ({{ reminder_count }})</h2></div>
+  {% if reminders %}
+  <ul class="po-reminders">
+    {% for n in reminders %}<li data-testid="reminder-item"><span class="dot tone-{{ n.tone }}" aria-hidden="true"></span>
+      <a href="{% url 'records:detail' n.record_id %}"><strong>{{ n.record.reference_no }}</strong> {{ n.phrase }}</a></li>{% endfor %}
+  </ul>
+  {% else %}<p class="po-rail-empty">Không có nhắc việc cần xử lý.</p>{% endif %}
+  <p class="po-rail-foot"><a class="link" href="{% url 'dashboard' %}?notif=open" data-open-popover="header-notifications">Xem tất cả thông báo</a></p>
+</section>

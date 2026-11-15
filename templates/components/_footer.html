@@ -1,0 +1,12 @@
+<footer class="po-footer" data-testid="app-footer">
+  <p class="po-footer-item">{% include "components/_icon.html" with name="building" %}<span>Đơn vị công tác:</span>
+    <strong title="{{ current_unit_label }}" data-testid="footer-department">{{ current_department_label }}</strong></p>
+  {% if user.is_business_user %}<span class="po-footer-sep" aria-hidden="true"></span>
+  <form method="post" action="{% url 'records:set_work_year' %}" class="po-footer-item" data-testid="footer-work-year">{% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}">
+    {% include "components/_icon.html" with name="calendar" %}<label for="work-year">Năm làm việc:</label>
+    <select id="work-year" name="year" class="po-year-select">{% for y in work_year_choices %}<option value="{{ y }}"{% if y == active_work_year %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
+    <button class="po-year-apply">Áp dụng</button>
+  </form>{% endif %}
+  <p class="po-footer-note">{% include "components/_icon.html" with name="info" %}<span>Bản demo - Dữ liệu giả lập, phục vụ trình diễn giải pháp quản lý hồ sơ công việc; chưa tích hợp hệ thống nghiệp vụ.</span></p>
+</footer>

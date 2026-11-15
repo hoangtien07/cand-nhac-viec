@@ -1,0 +1,10 @@
+<div class="po-notif-head"><p>Thông báo nhắc hạn</p>
+  {% if unread_notifications %}<form method="post" action="{% url 'notifications:mark_all_read' %}" hx-post="{% url 'notifications:mark_all_read' %}" hx-target="#notif-panel" hx-swap="innerHTML">{% csrf_token %}<button>Đánh dấu tất cả đã đọc</button></form>{% endif %}
+</div>
+<nav class="po-notif-tabs" aria-label="Lọc thông báo">
+  <a href="{% url 'dashboard' %}?notif=open" hx-get="{% url 'notifications:inbox' %}?tab=pending" hx-target="#notif-panel" hx-swap="innerHTML"{% if notif_tab == "pending" %} aria-current="true"{% endif %}>Cần xử lý ({{ notif_pending_count }})</a>
+  <a href="{% url 'dashboard' %}?notif=open&amp;notif_tab=all" hx-get="{% url 'notifications:inbox' %}?tab=all" hx-target="#notif-panel" hx-swap="innerHTML"{% if notif_tab == "all" %} aria-current="true"{% endif %}>Tất cả (lịch sử)</a>
+</nav>
+<ul class="po-notif-list">{% for n in notif_items %}{% include "notifications/_item.html" with oob=False %}{% empty %}<li class="po-notif-empty">Không có thông báo.</li>{% endfor %}</ul>
+{% if notif_more %}<p class="po-notif-foot">Đang hiển thị {{ notif_items|length }} thông báo mới nhất.</p>{% endif %}
+{% if oob %}{% include "notifications/_badge.html" %}{% endif %}

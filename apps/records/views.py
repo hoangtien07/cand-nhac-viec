@@ -1,10 +1,10 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
-from django.http import Http404
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
@@ -12,8 +12,7 @@ from apps.accounts.models import User
 from apps.audit.models import AuditEvent
 from apps.notifications.models import NotificationType
 
-from . import policies, services
-from .codes import normalize_code
+from . import dashboard_queries, policies, services
 from .forms import (
     AssignmentForm,
     DeadlineForm,
@@ -25,6 +24,7 @@ from .forms import (
 from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
+from .ui_state import SESSION_KEY, filter_created_in_work_year, get_active_work_year, parse_work_year
 
 BUSINESS_DENIED = "Tài khoản quản trị kỹ thuật không được xem hồ sơ nghiệp vụ."
 
@@ -51,31 +51,34 @@ def dashboard(request):
     if user.is_sys_admin:
         return redirect("adminpanel:home")
     _require_business(user)
-    now = db_now()
-    mine = _base_qs(user).filter(assignees__user=user, assignees__is_active=True)
-    open_mine = mine.filter(status=RecordStatus.OPEN)
-    ctx = {
-        "now": now,
-        "overdue": attach_state(overdue(open_mine, now).order_by("due_at")[:50], now),
-        "due_soon": attach_state(due_soon(open_mine, now).order_by("due_at")[:50], now),
-        "other_open": attach_state(
-            open_mine.exclude(pk__in=overdue(open_mine, now))
-            .exclude(pk__in=due_soon(open_mine, now))
-            .order_by("due_at")[:50],
-            now,
-        ),
-        "recent_done": attach_state(
-            mine.filter(status=RecordStatus.DONE).order_by("-completed_at")[:10], now
-        ),
-        "assigned_by_me": attach_state(
-            _base_qs(user)
-            .filter(Q(assigner=user) | Q(created_by=user), status=RecordStatus.OPEN)
-            .order_by("due_at")[:20],
-            now,
-        ),
-        "can_create": policies.creatable_departments(user).exists(),
-    }
-    return render(request, "records/dashboard.html", ctx)
+    g = request.GET
+    data = dashboard_queries.get_dashboard_data(
+        user=user,
+        year=get_active_work_year(request),
+        tab=g.get("tab", ""),
+        q=g.get("q", ""),
+        page_number=g.get("page"),
+        now=db_now(),
+        department=g.get("department", ""),
+        due=g.get("due", ""),
+        month=g.get("month", ""),
+    )
+    partial = request.htmx and request.htmx.target == "dashboard-work"
+    return render(request, "records/_dashboard_work.html" if partial else "records/dashboard.html", data)
+
+
+@require_POST
+def set_work_year(request):
+    """Stores the view filter only; never touches the user's unit/department or permissions."""
+    _require_business(request.user)
+    year = parse_work_year(request.POST.get("year"))
+    if year is None:
+        return HttpResponseBadRequest("Năm làm việc không hợp lệ.")
+    request.session[SESSION_KEY] = year
+    nxt = request.POST.get("next", "")
+    if nxt.startswith("/") and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()}):
+        return redirect(nxt.split("?", 1)[0].split("#", 1)[0])
+    return redirect("dashboard")
 
 
 @require_GET
@@ -84,18 +87,9 @@ def record_list(request):
     _require_business(user)
     now = db_now()
     form = RecordFilterForm(user, request.GET or None)
-    qs = _base_qs(user)
+    qs = filter_created_in_work_year(_base_qs(user), get_active_work_year(request))
     if form.is_valid():
-        q = form.cleaned_data.get("q")
-        if q:
-            try:
-                needle = normalize_code(q)
-            except ValueError:
-                needle = q.strip().casefold()
-            result_match = ResultReference.objects.filter(normalized_code__contains=needle).values(
-                "record_id"
-            )
-            qs = qs.filter(Q(reference_no_normalized__contains=needle) | Q(pk__in=result_match))
+        qs = dashboard_queries.filter_dashboard_search(qs, form.cleaned_data.get("q"))
         if form.cleaned_data.get("department"):
             qs = qs.filter(owner_department=form.cleaned_data["department"])
         status = form.cleaned_data.get("status")
@@ -109,7 +103,18 @@ def record_list(request):
             qs = due_soon(qs, now)
     page = Paginator(qs.order_by("status", "due_at"), 25).get_page(request.GET.get("page"))
     page.object_list = attach_state(page.object_list, now)
-    ctx = {"form": form, "page": page, "can_create": policies.creatable_departments(user).exists()}
+    state = {k: v for k, v in request.GET.items() if k != "page"}
+    ctx = {
+        "form": form,
+        "page": page,
+        "can_create": policies.creatable_departments(user).exists(),
+        "prev_href": dashboard_queries.query_string(state, page=page.previous_page_number())
+        if page.has_previous()
+        else "",
+        "next_href": dashboard_queries.query_string(state, page=page.next_page_number())
+        if page.has_next()
+        else "",
+    }
     template = "records/_list_table.html" if request.htmx else "records/list.html"
     return render(request, template, ctx)
 

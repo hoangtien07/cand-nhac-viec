@@ -1,0 +1,18 @@
+<div class="po-table-wrap" data-testid="dashboard-records" tabindex="0" aria-label="Bảng hồ sơ (cuộn ngang nếu cần)">
+<table class="po-table">
+  <caption class="sr-only">{{ caption }}</caption>
+  <thead><tr><th scope="col">Số hiệu</th><th scope="col">Thông tin hồ sơ</th><th scope="col">Phòng ban</th><th scope="col">Hạn xử lý</th><th scope="col">Trạng thái</th><th scope="col">Người xử lý</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+  <tr data-testid="record-row" data-reference="{{ r.reference_no }}">
+    <td data-label="Số hiệu"><a class="po-ref" href="{% url 'records:detail' r.pk %}">{{ r.reference_no }}</a></td>
+    <td data-label="Thông tin hồ sơ"><span class="po-truncate" title="Người giao: {{ r.assigner.full_name }}">Người giao: {{ r.assigner.full_name }}</span></td>
+    <td data-label="Phòng ban"><span class="po-cell-icon">{% include "components/_icon.html" with name="folder" %}<span class="po-truncate" title="{{ r.owner_department.name }}">{{ r.owner_department.name }}</span></span></td>
+    <td data-label="Hạn xử lý"><span class="po-cell-icon">{% include "components/_icon.html" with name="calendar" %}<time datetime="{{ r.due_at|date:'Y-m-d' }}">{{ r.due_at|date:"d/m/Y" }}</time></span></td>
+    <td data-label="Trạng thái">{% include "components/_status_badge.html" %}</td>
+    <td data-label="Người xử lý"><span class="po-avatars">{% for ini, name in r.people|slice:":3" %}<span class="po-mini-avatar" title="{{ name }}" aria-hidden="true">{{ ini }}</span>{% endfor %}{% if r.people|length > 3 %}<span class="po-mini-avatar po-mini-more" aria-hidden="true">+{{ r.people|length|add:"-3" }}</span>{% endif %}</span>
+      <span class="sr-only">{% for ini, name in r.people %}{{ name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>

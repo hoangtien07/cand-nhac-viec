@@ -1,0 +1,57 @@
+<header class="po-header" data-testid="app-header">
+  <button type="button" class="po-icon-btn po-menu-btn" data-drawer-toggle aria-controls="app-sidebar" aria-expanded="false" aria-label="Mở menu">{% include "components/_icon.html" with name="menu" %}</button>
+  <a href="{% url 'dashboard' %}" class="po-brand">
+    <span class="po-brand-mark">{% include "components/_icon.html" with name="shield-check" %}</span>
+    <span class="po-brand-name"><span class="po-brand-long">CAND </span>PocketOps</span><span class="po-demo-badge">Demo UI</span>
+  </a>
+  <span class="po-header-divider" aria-hidden="true"></span>
+  <p class="po-header-note">Hệ thống quản lý hồ sơ công việc theo số hiệu</p>
+  <div class="po-header-actions">
+    {% if user.is_business_user %}
+    <details class="po-pop po-notif" data-popover data-testid="header-notifications"{% if notif_open %} open{% endif %}>
+      <summary class="po-icon-btn po-bell" aria-label="Thông báo{% if unread_notifications %}: {{ unread_notifications }} chưa đọc{% endif %}">
+        {% include "components/_icon.html" with name="bell" %}{% include "notifications/_badge.html" %}
+      </summary>
+      <div id="notif-panel" class="po-pop-panel po-notif-panel" hx-get="{% url 'notifications:inbox' %}" hx-trigger="toggle from:closest details" hx-swap="innerHTML">
+        {% if notif_open %}{% include "notifications/_panel.html" %}{% else %}<p class="po-notif-empty">Đang tải thông báo…</p>{% endif %}
+      </div>
+    </details>
+    {% endif %}
+    <details class="po-pop" data-popover>
+      <summary class="po-icon-btn" aria-label="Trợ giúp">{% include "components/_icon.html" with name="help" %}</summary>
+      <div class="po-pop-panel po-help">
+        <p class="font-semibold mb-2">Hướng dẫn nhanh</p>
+        {% if user.is_business_user %}
+        <ol class="list-decimal pl-5 space-y-1 text-sm">
+          <li>Trang chủ hiển thị hồ sơ bạn đang được giao xử lý.</li>
+          <li>Bấm số hiệu để mở hồ sơ.</li>
+          <li>Nhập số hiệu kết quả, bấm “Tiếp tục” rồi “Xác nhận nộp”.</li>
+          <li>Lần nộp đầu tiên sẽ đánh dấu hồ sơ Đã hoàn thành.</li>
+        </ol>
+        {% else %}
+        <p class="text-sm">Tài khoản quản trị kỹ thuật quản lý tài khoản và phòng/đội; không xem hồ sơ nghiệp vụ.</p>
+        {% endif %}
+      </div>
+    </details>
+    <span class="po-header-sep" aria-hidden="true"></span>
+    <details class="po-pop po-user" data-popover data-testid="current-user-menu">
+      <summary aria-label="Tài khoản: {{ user.full_name }}">
+        <span class="po-avatar" aria-hidden="true">{{ current_user_initials }}</span>
+        <span class="po-user-text"><span class="po-user-name">{{ user.full_name }}</span><span class="po-user-dept">{{ current_department_label }}</span></span>
+        {% include "components/_icon.html" with name="chevron-down" cls="po-user-caret" %}
+      </summary>
+      <div class="po-pop-panel">
+        <p class="font-semibold">{{ user.full_name }}</p>
+        <dl class="po-user-meta">
+          <dt>Vai trò</dt><dd>{{ user.get_role_display }}</dd>
+          {% if user.department %}<dt>Phòng/đội</dt><dd>{{ user.department.name }}</dd>{% endif %}
+          <dt>Đơn vị</dt><dd>{{ current_unit_label }}</dd>
+        </dl>
+        <a class="po-menu-link" href="{% url 'accounts:profile' %}" data-testid="profile-link">{% include "components/_icon.html" with name="users" %}Thông tin cá nhân</a>
+        <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+          <button class="btn-secondary w-full justify-center">{% include "components/_icon.html" with name="logout" %} Đăng xuất</button>
+        </form>
+      </div>
+    </details>
+  </div>
+</header>

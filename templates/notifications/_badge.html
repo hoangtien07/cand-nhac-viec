@@ -1,1 +1,1 @@
-{% if unread_notifications %}<span class="ml-1 inline-block min-w-6 text-center rounded-full bg-red-600 text-white text-xs px-1.5" aria-label="{{ unread_notifications }} thông báo chưa đọc">{{ unread_notifications }}</span>{% endif %}
+<span id="header-unread-wrap"{% if oob %} hx-swap-oob="true"{% endif %}>{% if unread_notifications %}<span class="po-count po-count-dot" data-testid="header-unread">{{ unread_notifications }}</span>{% endif %}</span>

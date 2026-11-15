@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}Báo cáo{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-1">Báo cáo tổng hợp</h1>
-<p class="text-slate-600 mb-4">Phạm vi: {{ scope }} · Số liệu tại {{ now|date:"d/m/Y H:i" }}</p>
+<p class="text-slate-600 mb-4">Phạm vi: {{ scope }} · Hồ sơ tạo trong năm làm việc {{ year }} · Số liệu tại {{ now|date:"d/m/Y H:i" }}</p>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
   <div class="card"><div class="dt">Đang xử lý</div><div class="text-3xl font-bold">{{ totals.open }}</div></div>
   <div class="card"><div class="dt">Quá hạn</div><div class="text-3xl font-bold text-red-700">{{ totals.overdue }}</div></div>
