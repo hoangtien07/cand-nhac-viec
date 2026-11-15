@@ -1,0 +1,6 @@
+<footer class="po-footer" data-testid="app-footer">
+  <p class="po-footer-item">{% include "components/_icon.html" with name="building" %}<span>Đơn vị công tác:</span>
+    <strong title="{{ current_unit_label }}" data-testid="footer-department">{{ current_department_label }}</strong></p>
+  {% block work_year %}{% endblock %}
+  <p class="po-footer-note">{% include "components/_icon.html" with name="info" %}<span>Bản demo - Dữ liệu giả lập, phục vụ trình diễn giải pháp quản lý hồ sơ công việc; chưa tích hợp hệ thống nghiệp vụ.</span></p>
+</footer>
