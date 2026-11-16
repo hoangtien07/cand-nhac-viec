@@ -12,7 +12,7 @@
   {% for f in folders %}
   <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'folders:detail' f.pk %}">{% include "components/_icon.html" with name="folder" %} {{ f.name }}</a></td>
     <td class="px-4 py-2">{{ f.owner_department.name }}</td>
-    <td class="px-4 py-2">{{ f.record_count }}</td><td class="px-4 py-2">{{ f.member_count }}</td>
+    <td class="px-4 py-2"><a class="link" href="{% url 'records:list' %}?folder={{ f.pk }}" title="Xem hồ sơ của nhóm trong danh sách">{{ f.record_count }}</a></td><td class="px-4 py-2">{{ f.member_count }}</td>
     <td class="px-4 py-2 text-slate-600 hidden md:table-cell">{{ f.description_short|default:"—" }}</td></tr>
   {% empty %}<tr><td colspan="5" class="px-4 py-6 text-center text-slate-500">Chưa có nhóm hồ sơ nào trong phạm vi của bạn.</td></tr>{% endfor %}
   </tbody>

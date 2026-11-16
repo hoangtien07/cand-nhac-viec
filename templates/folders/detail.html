@@ -19,7 +19,7 @@
           <div class="flex-1 min-w-56"><label class="label" for="id_name">Tên mới</label>{{ rename_form.name }}</div>
           <button class="btn-secondary">Lưu tên</button></form></details>{% endif %}
     </section>
-    <section class="card p-0 overflow-x-auto" aria-labelledby="h-frecords"><h2 id="h-frecords" class="text-lg font-semibold px-4 pt-4 pb-2">Hồ sơ trong nhóm</h2>
+    <section class="card p-0 overflow-x-auto" aria-labelledby="h-frecords"><h2 id="h-frecords" class="text-lg font-semibold px-4 pt-4 pb-2">Hồ sơ trong nhóm <a class="link text-sm font-normal" href="{% url 'records:list' %}?folder={{ folder.pk }}">Xem trong danh sách hồ sơ →</a></h2>
       <table class="w-full text-left">
         <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th></tr></thead>
         <tbody class="divide-y">

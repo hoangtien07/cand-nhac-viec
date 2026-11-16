@@ -2,20 +2,27 @@
 {% block content %}
 <div class="flex flex-wrap items-center gap-3 mb-4"><div><h1 class="text-2xl font-bold">Hồ sơ công việc</h1><p class="dt">Hồ sơ trong phạm vi bạn được xem, tạo trong năm làm việc {{ active_work_year }}.</p></div>
   {% if can_create %}<a class="btn-primary ml-auto" href="{% url 'records:create' %}">+ Tạo hồ sơ</a>{% endif %}</div>
-<form method="get" class="card flex flex-wrap gap-3 items-end mb-4" role="search"
+<form method="get" class="card flex flex-wrap gap-3 items-end mb-4" role="search" data-trim-params
       hx-get="{% url 'records:list' %}" hx-target="#record-table" hx-trigger="input changed delay:400ms from:#id_q, change from:select, submit" hx-push-url="true">
   <div class="flex-1 min-w-56"><label class="label" for="id_q">Tìm số hiệu (gốc hoặc kết quả)</label>{{ form.q }}</div>
-  <div><label class="label" for="id_department">Phòng chủ trì</label>{{ form.department }}</div>
-  <div><label class="label" for="id_folder">Nhóm hồ sơ</label>{{ form.folder }}</div>
   <div><label class="label" for="id_status">Trạng thái</label>{{ form.status }}</div>
-  <div><label class="label" for="id_assignee">Người xử lý</label>{{ form.assignee }}</div>
-  <div><label class="label" for="id_creator">Người tạo</label>{{ form.creator }}</div>
-  <div><label class="label" for="id_due_from">Hạn từ</label>{{ form.due_from }}</div>
-  <div><label class="label" for="id_due_to">Hạn đến</label>{{ form.due_to }}</div>
-  <div class="flex items-center gap-4 pb-1">
-    <label class="flex items-center gap-1.5 text-sm" for="id_assigned_to_me">{{ form.assigned_to_me }} Giao cho tôi</label>
-    <label class="flex items-center gap-1.5 text-sm" for="id_shared_with_me">{{ form.shared_with_me }} Chia sẻ với tôi</label>
-  </div>
+  <details class="po-menu relative" data-popover>
+    <summary class="btn-secondary cursor-pointer list-none" aria-label="Bộ lọc nâng cao" title="Bộ lọc nâng cao">{% include "components/_icon.html" with name="filter" %}<span class="sr-only">Bộ lọc nâng cao</span></summary>
+    <div class="po-menu-panel card absolute right-0 mt-1 z-20 w-72 p-3 shadow-lg space-y-3">
+      <div><label class="label" for="id_folder">Nhóm hồ sơ</label>{{ form.folder }}</div>
+      <div><label class="label" for="id_department">Phòng chủ trì</label>{{ form.department }}</div>
+      <div><label class="label" for="id_assignee">Người xử lý</label>{{ form.assignee }}</div>
+      <div><label class="label" for="id_creator">Người tạo</label>{{ form.creator }}</div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="label" for="id_due_from">Hạn từ</label>{{ form.due_from }}</div>
+        <div><label class="label" for="id_due_to">Hạn đến</label>{{ form.due_to }}</div>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-1.5 text-sm" for="id_assigned_to_me">{{ form.assigned_to_me }} Giao cho tôi</label>
+        <label class="flex items-center gap-1.5 text-sm" for="id_shared_with_me">{{ form.shared_with_me }} Chia sẻ với tôi</label>
+      </div>
+    </div>
+  </details>
   <button class="btn-secondary">Lọc</button>
   <a class="link text-sm pb-2" href="{% url 'records:list' %}">Xóa bộ lọc</a>
 </form>

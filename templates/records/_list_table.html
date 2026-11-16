@@ -8,7 +8,7 @@
     <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td>
     <td class="px-4 py-2">
       <details class="po-menu relative inline-block"><summary class="btn-secondary px-2 py-1 cursor-pointer list-none" aria-label="Thao tác cho {{ r.reference_no }}">⋯</summary>
-        <div class="card absolute right-0 mt-1 z-20 w-48 p-1 shadow-lg">
+        <div class="po-menu-panel card absolute right-0 mt-1 z-20 w-48 p-1 shadow-lg">
           <a class="po-menu-item" href="{% url 'records:detail' r.pk %}">Xem chi tiết</a>
           {% if r.row_can_edit %}<a class="po-menu-item" href="{% url 'records:edit' r.pk %}">Sửa hồ sơ</a>{% endif %}
           {% if r.row_can_submit %}<button type="button" class="po-menu-item" hx-get="{% url 'records:quick_submit' %}?record={{ r.pk }}" hx-target="#modal-root" hx-swap="innerHTML">Nộp kết quả</button>{% endif %}
