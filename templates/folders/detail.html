@@ -1,0 +1,52 @@
+{% extends "base.html" %}{% block title %}Nhóm {{ folder.name }}{% endblock %}
+{% block content %}
+<nav class="text-sm mb-2"><a class="link" href="{% url 'folders:index' %}">← Nhóm hồ sơ</a></nav>
+<div class="flex flex-wrap items-center gap-3 mb-4">
+  <h1 class="text-2xl font-bold">{% include "components/_icon.html" with name="folder" %} {{ folder.name }}</h1>
+  {% if my_role %}<span class="badge badge-open">{{ my_role }}</span>{% endif %}
+</div>
+<div class="grid gap-6 lg:grid-cols-3">
+  <div class="lg:col-span-2 space-y-6">
+    <section class="card" aria-labelledby="h-finfo"><h2 id="h-finfo" class="text-lg font-semibold mb-3">Thông tin nhóm</h2>
+      <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
+        <div><dt class="dt">Phòng/đội sở hữu</dt><dd>{{ folder.owner_department.name }}</dd></div>
+        <div><dt class="dt">Người tạo</dt><dd>{{ folder.created_by.full_name }}</dd></div>
+        <div><dt class="dt">Ngày tạo</dt><dd>{{ folder.created_at|date:"d/m/Y" }}</dd></div>
+        {% if folder.description_short %}<div class="sm:col-span-2"><dt class="dt">Mô tả</dt><dd>{{ folder.description_short }}</dd></div>{% endif %}
+      </dl>
+      {% if can_manage %}<details class="mt-4"><summary class="cursor-pointer font-medium">Đổi tên nhóm</summary>
+        <form method="post" action="{% url 'folders:rename' folder.pk %}" class="mt-3 flex flex-wrap gap-3 items-end">{% csrf_token %}
+          <div class="flex-1 min-w-56"><label class="label" for="id_name">Tên mới</label>{{ rename_form.name }}</div>
+          <button class="btn-secondary">Lưu tên</button></form></details>{% endif %}
+    </section>
+    <section class="card p-0 overflow-x-auto" aria-labelledby="h-frecords"><h2 id="h-frecords" class="text-lg font-semibold px-4 pt-4 pb-2">Hồ sơ trong nhóm <a class="link text-sm font-normal" href="{% url 'records:list' %}?folder={{ folder.pk }}">Xem trong danh sách hồ sơ →</a></h2>
+      <table class="w-full text-left">
+        <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th></tr></thead>
+        <tbody class="divide-y">
+        {% for r in page.object_list %}
+        <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' r.pk %}">{{ r.reference_no }}</a></td>
+          <td class="px-4 py-2">{% include "components/_status_badge.html" %}</td>
+          <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="px-4 py-6 text-center text-slate-500">Chưa có hồ sơ nào trong nhóm (trong phạm vi bạn được xem).</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      {% url 'folders:detail' folder.pk as base_path %}{% include "components/_pagination.html" with hx_target="" %}
+    </section>
+  </div>
+  <aside class="space-y-6">
+    <section class="card" aria-labelledby="h-members"><h2 id="h-members" class="text-lg font-semibold mb-3">Thành viên nhóm</h2>
+      <ul class="divide-y">{% for g in grants %}<li class="py-2 flex flex-wrap items-center gap-2">
+        <span><span class="font-semibold">{{ g.user.full_name }}</span> <span class="text-slate-600">· {{ g.user.department.name|default:"—" }}</span></span>
+        <span class="badge badge-open ml-auto">{{ g.get_role_display }}</span>
+        {% if can_manage %}<form method="post" action="{% url 'folders:revoke' folder.pk g.pk %}">{% csrf_token %}<button class="btn-secondary" title="Thu hồi quyền">Thu hồi</button></form>{% endif %}
+      </li>{% empty %}<li class="py-2 text-slate-500">Chưa có thành viên được cấp quyền trực tiếp.</li>{% endfor %}</ul>
+      <p class="text-sm text-slate-600 mt-2">Lãnh đạo đơn vị và trưởng phòng sở hữu luôn xem được nhóm theo quyền quản lý.</p>
+      {% if can_manage %}<details class="mt-4" open><summary class="cursor-pointer font-medium">Thêm thành viên</summary>
+        <p class="msg msg-info mt-2" role="note">Lưu ý: thành viên nhóm được xem <strong>toàn bộ</strong> hồ sơ trong nhóm, kể cả hồ sơ tạo sau này. Chỉ thêm người cùng đơn vị thật sự cần quyền.</p>
+        <form method="post" action="{% url 'folders:grant' folder.pk %}" class="mt-3 space-y-3">{% csrf_token %}
+          {% include "_field.html" with f=grant_form.user %}{% include "_field.html" with f=grant_form.role %}
+          <button class="btn-primary">Thêm thành viên</button></form></details>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

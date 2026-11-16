@@ -1,0 +1,22 @@
+<div class="po-modal-body">
+  <form method="post" action="{% url 'records:quick_submit' %}" hx-post="{% url 'records:quick_submit' %}" hx-target="#modal-root" hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="po-combo mb-3">
+      <label class="label" for="qs-search">Nhập hồ sơ/số hiệu gốc</label>
+      <div class="relative">
+        <input id="qs-search" name="q" type="text" class="input pr-8" placeholder="Gõ số hiệu hoặc ghi chú để tìm..." autocomplete="off" role="combobox" aria-controls="qs-results"{% if selected %} value="{{ selected.reference_no }}" readonly{% endif %}
+          hx-get="{% url 'records:quick_submit_search' %}" hx-target="#qs-results" hx-swap="innerHTML" hx-trigger="input changed delay:300ms, focus">
+        <span id="qs-clear" class="po-combo-clear">{% if selected %}<button type="button" class="po-combo-clearbtn" title="Xóa" aria-label="Xóa lựa chọn" onclick="document.getElementById('qs-selected').innerHTML='';var i=document.getElementById('qs-search');i.value='';i.readOnly=false;i.focus();this.parentElement.innerHTML=''">&times;</button>{% endif %}</span>
+      </div>
+      <div id="qs-results" class="po-combo-list" role="listbox"></div>
+      <div id="qs-selected">{% include "records/_quick_submit_selected.html" %}</div>
+    </div>
+    {% include "_field.html" with f=form.code %}
+    {% if error %}<p class="mt-2 text-sm text-red-700" role="alert">{{ error }}</p>{% endif %}
+    <p class="mt-1 text-sm text-slate-600">Lần nộp số hiệu đầu tiên sẽ đánh dấu hồ sơ Đã hoàn thành ngay.</p>
+    <footer class="po-modal-foot">
+      <button type="button" class="btn-secondary" data-modal-close>Hủy</button>
+      <button type="submit" class="btn-primary">Xác nhận nộp</button>
+    </footer>
+  </form>
+</div>

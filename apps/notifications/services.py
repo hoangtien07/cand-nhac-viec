@@ -69,7 +69,7 @@ def remind_record(record_id, now=None):
             .filter(pk=record_id)
             .first()
         )
-        if record is None or record.status != RecordStatus.OPEN:
+        if record is None or record.status != RecordStatus.OPEN or record.archived_at is not None:
             return 0
         now = now or db_now()
         today = local_date(now)
@@ -110,7 +110,10 @@ def run_due_reminders(now=None, force=False):
     )
     ids = list(
         WorkRecord.objects.filter(
-            status=RecordStatus.OPEN, due_at__lt=horizon, unit__is_active=True
+            status=RecordStatus.OPEN,
+            due_at__lt=horizon,
+            unit__is_active=True,
+            archived_at__isnull=True,
         ).values_list("pk", flat=True)
     )
     created = sum(remind_record(pk, now=now) for pk in ids)

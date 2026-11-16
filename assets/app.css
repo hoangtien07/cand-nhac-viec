@@ -166,6 +166,28 @@
   /* ---------- Existing primitives (kept for forms/detail/list) ---------- */
   .card { background: var(--po-surface); border: 1px solid var(--po-border); border-radius: var(--po-radius-card);
     box-shadow: var(--po-shadow-card); padding: 20px; }
+  .po-chart { position: relative; height: 16rem; }
+  .po-menu-item { @apply block px-3 py-2 text-sm rounded hover:bg-slate-100 focus:bg-slate-100; }
+  button.po-menu-item { @apply w-full text-left bg-transparent border-0 cursor-pointer; }
+  .po-menu > summary::-webkit-details-marker { display: none; }
+
+  /* ---------- Modal ---------- */
+  .po-modal-backdrop { @apply fixed inset-0 z-40 bg-slate-900/50; }
+  .po-modal { @apply fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[min(92vw,32rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg bg-white shadow-xl; }
+  .po-modal-head { @apply flex items-center justify-between border-b border-slate-200 px-4 py-3; }
+  .po-modal-title { @apply text-lg font-semibold; }
+  .po-modal-body { @apply overflow-y-auto p-4; }
+  .po-modal-foot { @apply mt-4 flex justify-end gap-2 border-t border-slate-200 pt-3; }
+  .po-modal-list { @apply max-h-48 divide-y divide-slate-100 overflow-y-auto rounded border border-slate-300; }
+  .po-modal-row { @apply flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 has-checked:bg-blue-50; }
+  .po-combo { @apply relative; }
+  .po-combo-list { @apply absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded border border-slate-300 bg-white shadow-lg empty:hidden; }
+  .po-combo-item { @apply block w-full cursor-pointer border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50; }
+  .po-combo-selected { @apply mt-2 empty:hidden; }
+  .po-combo-chip { @apply flex items-center gap-2 rounded border border-blue-800/40 bg-blue-50 px-3 py-2 text-sm; }
+  .po-combo-clear { @apply absolute right-1.5 top-1/2 -translate-y-1/2; }
+  .po-combo-clearbtn { @apply cursor-pointer px-1 text-lg leading-none text-slate-500 hover:text-red-700; }
+  .po-modal-head [data-modal-close] { color: #d6203a; }
   .section-h { @apply text-lg font-semibold px-4 py-3 border-b; border-color: var(--po-border); }
   .label { @apply block font-medium mb-1; }
   .input, form input:not([type=checkbox]):not([type=hidden]):not([type=radio]), form select {

@@ -19,13 +19,9 @@ def rec(org):
     return make_record(org.leader, org.d1, [org.o1, org.o1b, org.o2], watchers=[org.o2b])
 
 
-def test_two_step_ui_first_submit_closes_record(org, rec, client_for):
+def test_direct_submit_closes_record(org, rec, client_for):
     c = client_for(org.o1)
-    r = c.post(f"/ho-so/{rec.pk}/nop/", {"code": "KQ-001"})
-    assert r.status_code == 200 and "Xác nhận nộp" in r.content.decode()
-    rec.refresh_from_db()
-    assert rec.status == "OPEN" and not rec.results.exists()  # confirmation step writes nothing
-    r = c.post(f"/ho-so/{rec.pk}/nop/", {"code": "KQ-001", "confirm": "1"}, follow=True)
+    r = c.post(f"/ho-so/{rec.pk}/nop/", {"code": "KQ-001"}, follow=True)
     assert "Hồ sơ đã HOÀN THÀNH" in r.content.decode()
     rec.refresh_from_db()
     assert rec.status == "DONE" and rec.completed_by == org.o1 and rec.completed_at is not None

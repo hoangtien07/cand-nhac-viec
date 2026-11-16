@@ -7,10 +7,10 @@ Callers must re-check mutations under the record row lock (services do this).
 from django.core.exceptions import PermissionDenied
 from django.db.models import Exists, OuterRef, Q
 
-from apps.accounts.models import Role
-from apps.organization.models import Department
+from apps.accounts.models import BUSINESS_ROLES, Role
+from apps.organization.models import Department, FolderGrant, FolderRole
 
-from .models import RecordAssignee, RecordStatus, RecordWatcher, WorkRecord
+from .models import RecordAssignee, RecordShare, RecordStatus, RecordWatcher, WorkRecord
 
 
 def _business(user):
@@ -35,6 +35,20 @@ def _active_watcher(user):
     return RecordWatcher.objects.filter(record=OuterRef("pk"), user=user, is_active=True)
 
 
+def _active_folder_grant(user):
+    """Active grant on the record's (non-archived) folder — derived read access only (ADR-002)."""
+    return FolderGrant.objects.filter(
+        folder=OuterRef("folder"),
+        user=user,
+        revoked_at__isnull=True,
+        folder__is_archived=False,
+    )
+
+
+def _active_share(user):
+    return RecordShare.objects.filter(record=OuterRef("pk"), user=user, revoked_at__isnull=True)
+
+
 def _participant_q(user):
     return Q(created_by=user) | Q(assigner=user) | Q(Exists(_active_assignee(user)))
 
@@ -52,7 +66,14 @@ def visible_records_queryset(user):
     qs = WorkRecord.objects.filter(unit_id=user.unit_id)
     if user.role == Role.LEADER:
         return qs
-    q = _participant_q(user) | Q(Exists(_active_watcher(user)))
+    # Explicit ACL disjuncts: active folder grant + direct record share (DECISIONS §3/§4).
+    # They widen READ visibility only — never submit/edit/report rights — and stay inside the unit.
+    q = (
+        _participant_q(user)
+        | Q(Exists(_active_watcher(user)))
+        | Q(Exists(_active_folder_grant(user)))
+        | Q(Exists(_active_share(user)))
+    )
     dept_ids = managed_department_ids(user)
     if dept_ids:
         q |= _managed_q(dept_ids)
@@ -64,7 +85,7 @@ def report_records_queryset(user):
     Watch-only records are excluded from reports (matrix: watcher 'Xem báo cáo: Không mặc định')."""
     if not _business(user):
         return WorkRecord.objects.none()
-    qs = WorkRecord.objects.filter(unit_id=user.unit_id)
+    qs = WorkRecord.objects.filter(unit_id=user.unit_id, archived_at__isnull=True)
     if user.role == Role.LEADER:
         return qs
     q = _participant_q(user)
@@ -141,21 +162,92 @@ def _manages_record(user, record):
     )
 
 
+def _editable(user, record):
+    return record.status == RecordStatus.OPEN and record.archived_at is None and _manages_record(user, record)
+
+
 def can_manage_assignment(user, record):
-    return record.status == RecordStatus.OPEN and _manages_record(user, record)
+    return _editable(user, record)
 
 
 def can_edit_deadline(user, record):
-    return record.status == RecordStatus.OPEN and _manages_record(user, record)
+    return _editable(user, record)
 
 
 def can_manage_watchers(user, record):
-    return record.status == RecordStatus.OPEN and _manages_record(user, record)
+    return _editable(user, record)
+
+
+def can_edit_record_metadata(user, record):
+    """Edit of reference_no / owner_department / folder / deadline / people — OPEN, not archived,
+    and inside the actor's managed scope (deny-by-default otherwise)."""
+    return _editable(user, record)
+
+
+def can_archive_record(user, record):
+    """Archive replaces hard delete: OPEN records with no submitted results only."""
+    return (
+        record.status == RecordStatus.OPEN
+        and record.archived_at is None
+        and _manages_record(user, record)
+        and not record.results.exists()
+    )
+
+
+def can_restore_record(user, record):
+    return record.archived_at is not None and _manages_record(user, record)
+
+
+def can_correct_result(user, record, result):
+    """Only the original submitter who is STILL an active assignee may correct/revoke their
+    own result code. Watchers, share/folder-grant viewers and managers get no such right."""
+    if not _business(user) or record.unit_id != user.unit_id or record.archived_at is not None:
+        return False
+    if result.record_id != record.pk or result.submitted_by_id != user.pk:
+        return False
+    return RecordAssignee.objects.filter(record=record, user=user, is_active=True).exists()
+
+
+def manages_record(user, record):
+    return _manages_record(user, record)
+
+
+def can_share_record(user, record):
+    """ASSUMPTION-F2 (ADR-002): a VIEWER share needs record-management authority OR an active
+    MANAGER grant on the record's folder. A share never grants submit/edit/assign rights."""
+    if not _business(user) or record.unit_id != user.unit_id:
+        return False
+    if record.archived_at is not None:
+        return False
+    if _manages_record(user, record):
+        return True
+    if record.folder_id:
+        return FolderGrant.objects.filter(
+            folder_id=record.folder_id,
+            user=user,
+            revoked_at__isnull=True,
+            folder__is_archived=False,
+            role=FolderRole.MANAGER,
+        ).exists()
+    return False
+
+
+def shareable_users(user, record):
+    """Candidates for a VIEWER share: active same-unit business users (share is idempotent)."""
+    from apps.accounts.models import User
+
+    if not can_share_record(user, record):
+        return User.objects.none()
+    return User.objects.filter(unit_id=user.unit_id, is_active=True, role__in=BUSINESS_ROLES).select_related(
+        "department"
+    )
 
 
 def can_submit_result(user, record):
     """Only an active assignee may submit; leader/manager roles add nothing (ARCHITECTURE §4)."""
     if not _business(user) or record.unit_id != user.unit_id:
+        return False
+    if record.archived_at is not None:
         return False
     return RecordAssignee.objects.filter(record=record, user=user, is_active=True).exists()
 
