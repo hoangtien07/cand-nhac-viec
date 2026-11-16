@@ -2,6 +2,8 @@
 
 > Bản demo chỉ dùng dữ liệu giả lập. Không nhập dữ liệu thật, nội dung hồ sơ, thông tin công dân/điều tra.
 
+Phương án Vercel Hobby + Neon Free và các điều kiện trước khi phát hành: [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md).
+
 ## 1. Chạy demo bằng Docker Compose (HTTPS nội bộ, chỉ 127.0.0.1)
 
 ```bash
