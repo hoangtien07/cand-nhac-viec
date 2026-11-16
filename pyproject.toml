@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "CAND PocketOps — web demo quản lý hồ sơ công việc theo số hiệu (dữ liệu giả lập)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "certifi>=2025.10.5",
     "django>=5.2.19,<5.3",
     "psycopg[binary]>=3.3,<3.4",
     "django-htmx>=1.29,<2",
