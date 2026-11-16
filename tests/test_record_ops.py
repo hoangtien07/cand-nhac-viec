@@ -172,18 +172,22 @@ def test_restore_returns_record_to_active_lists(org, client_for):
 
 
 @pytest.mark.django_db
-def test_quick_submit_modal_lists_only_submittable(org, client_for):
-    make_record(org.leader, org.d1, [org.o1], ref="QS-1")
-    make_record(org.leader, org.d1, [org.o1b], ref="QS-2")  # not mine
-    rec_done = make_record(org.leader, org.d1, [org.o1], ref="QS-3")
-    _submit(org.o1, rec_done, "KQ-D1")  # DONE vẫn nộp bổ sung được
+def test_quick_submit_modal_combobox(org, client_for):
+    mine = make_record(org.leader, org.d1, [org.o1], ref="QS-1")
     res = client_for(org.o1).get("/ho-so/nop-nhanh/")
-    assert res.status_code == 200
     body = res.content.decode()
-    assert "QS-1" in body and "QS-3" in body and "QS-2" not in body
-    # manager/leader không có hồ sơ nào trong danh sách
-    res = client_for(org.mgr1).get("/ho-so/nop-nhanh/")
-    assert "QS-1" not in res.content.decode()
+    assert res.status_code == 200
+    assert "Nhập hồ sơ/số hiệu gốc" in body
+    # không có lựa chọn sẵn khi không truyền ?record=
+    assert 'name="record"' not in body
+    # ?record=<pk> preselect cho record mình được nộp
+    res = client_for(org.o1).get(f"/ho-so/nop-nhanh/?record={mine.pk}")
+    body = res.content.decode()
+    assert f'name="record" value="{mine.pk}"' in body and "QS-1" in body
+    # record không được nộp → không preselect
+    other = make_record(org.leader, org.d1, [org.o1b], ref="QS-2")
+    res = client_for(org.o1).get(f"/ho-so/nop-nhanh/?record={other.pk}")
+    assert 'name="record"' not in res.content.decode()
 
 
 @pytest.mark.django_db
@@ -193,6 +197,59 @@ def test_quick_submit_search_filters(org, client_for):
     res = client_for(org.o1).get("/ho-so/nop-nhanh/tim/", {"q": "QS-AB"})
     body = res.content.decode()
     assert "QS-AB" in body and "QS-CD" not in body
+    # chỉ hồ sơ mình được nộp mới xuất hiện
+    make_record(org.leader, org.d1, [org.o1b], ref="QS-XX")
+    res = client_for(org.o1).get("/ho-so/nop-nhanh/tim/", {"q": "QS-XX"})
+    assert "QS-XX" not in res.content.decode()
+
+
+@pytest.mark.django_db
+def test_quick_submit_search_unaccented_and_description(org, client_for):
+    rec = make_record(org.leader, org.d1, [org.o1], ref="QS-UN")
+    rec.description_short = "Hồ sơ mật tháng mười một"
+    rec.save(update_fields=["description_short"])
+    c = client_for(org.o1)
+    # gõ không dấu vẫn khớp mô tả có dấu
+    res = c.get("/ho-so/nop-nhanh/tim/", {"q": "ho so mat thang muoi mot"})
+    assert "QS-UN" in res.content.decode()
+    # khớp một phần không dấu của số hiệu
+    res = c.get("/ho-so/nop-nhanh/tim/", {"q": "qs-un"})
+    assert "QS-UN" in res.content.decode()
+
+
+@pytest.mark.django_db
+def test_quick_submit_pick(org, client_for):
+    mine = make_record(org.leader, org.d1, [org.o1], ref="QS-P")
+    res = client_for(org.o1).get(f"/ho-so/nop-nhanh/chon/?record={mine.pk}")
+    body = res.content.decode()
+    assert f'name="record" value="{mine.pk}"' in body and "QS-P" in body
+    # record không được nộp → chip trống
+    other = make_record(org.leader, org.d1, [org.o1b], ref="QS-Q")
+    res = client_for(org.o1).get(f"/ho-so/nop-nhanh/chon/?record={other.pk}")
+    assert 'name="record"' not in res.content.decode()
+
+
+@pytest.mark.django_db
+def test_description_short_create_and_update(org, client_for):
+    import datetime
+
+    rec = services.create_record(
+        org.mgr1,
+        reference_no="DESC-1",
+        owner_department=org.d1,
+        due_date=datetime.date.today() + datetime.timedelta(days=5),
+        assignees=[org.o1],
+        description_short="Ghi chú demo",
+    )
+    assert rec.description_short == "Ghi chú demo"
+    services.update_description(org.mgr1, rec.pk, "Ghi chú mới")
+    rec.refresh_from_db()
+    assert rec.description_short == "Ghi chú mới"
+    assert AuditEvent.objects.filter(
+        record=rec, action="record.updated", metadata__field="description_short"
+    ).exists()
+    # hiển thị trong trang chi tiết
+    assert "Ghi chú mới" in client_for(org.mgr1).get(f"/ho-so/{rec.pk}/").content.decode()
 
 
 @pytest.mark.django_db

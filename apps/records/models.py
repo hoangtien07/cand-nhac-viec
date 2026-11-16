@@ -50,6 +50,7 @@ class WorkRecord(models.Model):
         related_name="+",
     )
     archive_reason = models.CharField("Lý do lưu trữ", max_length=300, blank=True)
+    description_short = models.CharField("Ghi chú/mô tả ngắn", max_length=200, blank=True)
 
     class Meta:
         ordering = ["due_at"]

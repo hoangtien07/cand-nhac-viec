@@ -1,0 +1,4 @@
+{% include "records/_quick_submit_selected.html" %}
+<div id="qs-results" hx-swap-oob="innerHTML"></div>
+<input id="qs-search" name="q" type="text" class="input" placeholder="Gõ số hiệu hoặc ghi chú để tìm..." autocomplete="off" role="combobox" aria-expanded="true" aria-controls="qs-results" hx-swap-oob="outerHTML"
+  hx-get="{% url 'records:quick_submit_search' %}" hx-target="#qs-results" hx-swap="innerHTML" hx-trigger="input changed delay:300ms, focus">

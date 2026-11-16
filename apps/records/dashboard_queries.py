@@ -216,11 +216,7 @@ def quick_actions(user):
         ("Báo cáo thống kê", "bar-chart", reverse("reports:report"), policies.can_view_reports(user), ""),
         ("Quản lý người dùng", "users", reverse("adminpanel:home"), user.is_sys_admin, ""),
     ]
-    return [
-        {"label": a, "icon": i, "href": h, "hx_get": g}
-        for a, i, h, e, g in actions
-        if e
-    ]
+    return [{"label": a, "icon": i, "href": h, "hx_get": g} for a, i, h, e, g in actions if e]
 
 
 def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", due="", month=""):

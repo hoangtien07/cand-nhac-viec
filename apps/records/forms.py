@@ -35,6 +35,9 @@ class RecordCreateForm(DueDateMixin, forms.Form):
         widget=forms.DateInput(attrs={"type": "date"}),
         help_text="Hết hạn lúc 23:59 ngày đã chọn (giờ Việt Nam).",
     )
+    description_short = forms.CharField(
+        label="Ghi chú/mô tả ngắn (không bắt buộc)", max_length=200, required=False
+    )
     assignees = UserChoiceField(
         label="Người xử lý (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
     )
@@ -105,6 +108,9 @@ class RecordEditForm(forms.Form):
         label="Nhóm hồ sơ", queryset=None, required=False, empty_label="— Không thuộc nhóm —"
     )
     due_date = forms.DateField(label="Hạn xử lý", widget=forms.DateInput(attrs={"type": "date"}))
+    description_short = forms.CharField(
+        label="Ghi chú/mô tả ngắn (không bắt buộc)", max_length=200, required=False
+    )
     assignees = UserChoiceField(
         label="Người xử lý (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
     )

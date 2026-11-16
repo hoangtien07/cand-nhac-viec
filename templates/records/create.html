@@ -5,6 +5,7 @@
   {% if form.non_field_errors %}<div class="msg msg-error" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
   {% include "_field.html" with f=form.reference_no %}
   <div class="grid md:grid-cols-2 gap-4">{% include "_field.html" with f=form.owner_department %}{% include "_field.html" with f=form.due_date %}</div>
+  {% include "_field.html" with f=form.description_short %}
   {% include "_field.html" with f=form.assignees %}
   {% include "_field.html" with f=form.watchers %}
   <div class="flex gap-3"><button class="btn-primary">Lưu hồ sơ</button><a class="btn-secondary" href="{% url 'dashboard' %}">Hủy</a></div>

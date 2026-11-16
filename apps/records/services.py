@@ -45,7 +45,9 @@ def _lock(record_id, actor):
 
 
 @transaction.atomic
-def create_record(actor, *, reference_no, owner_department, due_date, assignees, watchers=()):
+def create_record(
+    actor, *, reference_no, owner_department, due_date, assignees, watchers=(), description_short=""
+):
     policies.require(policies.can_create_record(actor, owner_department))
     try:
         display = clean_display_code(reference_no)
@@ -63,6 +65,7 @@ def create_record(actor, *, reference_no, owner_department, due_date, assignees,
         assigner=actor,
         created_by=actor,
         due_at=due_at_for_date(due_date),
+        description_short=(description_short or "").strip()[:200],
     )
     RecordAssignee.objects.bulk_create(
         RecordAssignee(record=record, user=u, added_by=actor) for u in assignees
@@ -275,6 +278,22 @@ def update_reference_no(actor, record_id, reference_no):
         field="reference_no",
         before=before,
         after=display,
+    )
+    return record
+
+
+@transaction.atomic
+def update_description(actor, record_id, text):
+    record = _lock(record_id, actor)
+    policies.require(policies.can_edit_record_metadata(actor, record))
+    text = (text or "").strip()[:200]
+    if text == record.description_short:
+        return record
+    before = record.description_short
+    WorkRecord.objects.filter(pk=record.pk).update(description_short=text, updated_at=Now())
+    record.refresh_from_db()
+    _record_audit(
+        actor, record, AuditAction.RECORD_UPDATED, field="description_short", before=before, after=text
     )
     return record
 

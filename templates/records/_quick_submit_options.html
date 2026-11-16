@@ -1,0 +1,8 @@
+{% for r in records %}
+<button type="button" class="po-combo-item" role="option" aria-selected="false"
+  hx-get="{% url 'records:quick_submit_pick' %}?record={{ r.pk }}" hx-target="#qs-selected" hx-swap="innerHTML">
+  <span class="block font-medium">{{ r.reference_no }}</span>
+  <span class="block text-xs text-slate-600">{{ r.owner_department.name }} · Hạn {{ r.due_at|date:"d/m/Y" }} · {{ r.get_status_display }}</span>
+  {% if r.description_short %}<span class="block text-xs text-slate-500 truncate">{{ r.description_short }}</span>{% endif %}
+</button>
+{% empty %}<p class="px-3 py-3 text-sm text-slate-600">Không tìm thấy hồ sơ phù hợp bạn được nộp kết quả.</p>{% endfor %}

@@ -1,9 +1,0 @@
-{% load i18n %}{% for r in records %}
-<label class="po-modal-row">
-  <input type="radio" name="record" value="{{ r.pk }}" required{% if selected_id == r.pk|stringformat:"s" %} checked{% endif %}>
-  <span class="min-w-0">
-    <span class="block font-medium truncate">{{ r.reference_no }}</span>
-    <span class="block text-xs text-slate-600">{{ r.owner_department.name }} · Hạn {{ r.due_at|date:"d/m/Y" }} · {{ r.get_status_display }}</span>
-  </span>
-</label>
-{% empty %}<p class="px-3 py-4 text-sm text-slate-600">Không có hồ sơ nào bạn được phép nộp kết quả.</p>{% endfor %}

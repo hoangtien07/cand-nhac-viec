@@ -22,6 +22,7 @@
         <div><dt class="dt">Người giao</dt><dd>{{ record.assigner.full_name }}</dd></div>
         <div><dt class="dt">Hạn xử lý</dt><dd>{{ record.due_at|date:"d/m/Y H:i" }}</dd></div>
         <div><dt class="dt">Ngày tạo</dt><dd>{{ record.created_at|date:"d/m/Y H:i" }}</dd></div>
+        <div class="sm:col-span-2"><dt class="dt">Ghi chú/mô tả</dt><dd>{{ record.description_short|default:"—" }}</dd></div>
         <div><dt class="dt">Nhóm hồ sơ</dt><dd>{% if record.folder_id %}{% if can_open_folder %}<a class="link" href="{% url 'folders:detail' record.folder_id %}">{{ record.folder.name }}</a>{% else %}{{ record.folder.name }}{% endif %}{% else %}—{% endif %}</dd></div>
         <div class="sm:col-span-2"><dt class="dt">Quyền truy cập của bạn</dt><dd>{{ access_reasons|join:" · " }}</dd></div>
         {% if record.completed_at %}<div><dt class="dt">Hoàn thành lúc</dt><dd>{{ record.completed_at|date:"d/m/Y H:i:s" }} · {{ record.completed_by.full_name }}</dd></div>{% endif %}

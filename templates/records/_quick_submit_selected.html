@@ -1,0 +1,8 @@
+{% if selected %}<input type="hidden" name="record" value="{{ selected.pk }}">
+<span class="po-combo-chip">
+  <span class="min-w-0 flex-1">
+    <span class="block font-medium truncate">{{ selected.reference_no }}<span class="font-normal text-slate-600"> · {{ selected.owner_department.name }} · {{ selected.get_status_display }}</span></span>
+    {% if selected.description_short %}<span class="block text-xs text-slate-500 truncate">{{ selected.description_short }}</span>{% endif %}
+  </span>
+  <button type="button" class="po-icon-btn" aria-label="Bỏ chọn hồ sơ" onclick="document.getElementById('qs-selected').innerHTML=''">&times;</button>
+</span>{% endif %}

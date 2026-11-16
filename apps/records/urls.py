@@ -12,6 +12,7 @@ urlpatterns = [
     path("nam-lam-viec/", views.set_work_year, name="set_work_year"),
     path("nop-nhanh/", views.quick_submit, name="quick_submit"),
     path("nop-nhanh/tim/", views.quick_submit_search, name="quick_submit_search"),
+    path("nop-nhanh/chon/", views.quick_submit_pick, name="quick_submit_pick"),
     path("<uuid:pk>/", views.record_detail, name="detail"),
     path("<uuid:pk>/sua/", views.record_edit, name="edit"),
     path("<uuid:pk>/luu-tru/", views.archive_record, name="archive"),

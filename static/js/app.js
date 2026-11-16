@@ -34,6 +34,10 @@
   });
   document.addEventListener("click", function (e) {
     if (e.target.closest && e.target.closest("[data-modal-close]")) closeModal();
+    var results = document.getElementById("qs-results");
+    if (results && results.childElementCount && !(e.target.closest && e.target.closest(".po-combo"))) {
+      results.innerHTML = "";
+    }
   });
   document.addEventListener("htmx:afterSwap", function (e) {
     if (e.target.id === "modal-root") {

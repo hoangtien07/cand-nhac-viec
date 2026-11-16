@@ -172,6 +172,7 @@ def record_create(request):
                 due_date=cd["due_date"],
                 assignees=list(cd["assignees"]),
                 watchers=list(cd["watchers"]),
+                description_short=cd["description_short"],
             )
         except ValidationError as e:
             form.add_error(None, e)
@@ -406,8 +407,20 @@ def submit_result(request, pk):
     return HttpResponseClientRedirect(url) if request.htmx else redirect(url)
 
 
+def _fold(text):
+    """Casefold + strip Vietnamese diacritics so 'ho so' matches 'hồ sơ'."""
+    import unicodedata
+
+    return "".join(
+        c
+        for c in unicodedata.normalize("NFD", (text or "").replace("đ", "d").replace("Đ", "D").casefold())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
 def _submittable_records(user, q=""):
-    """Records the user may submit a result code for (same unit, active assignee, not archived)."""
+    """Records the user may submit a result code for (same unit, active assignee, not archived).
+    `q` matches reference_no or description_short, accent-insensitive."""
     qs = (
         WorkRecord.objects.filter(
             unit=user.unit,
@@ -418,10 +431,10 @@ def _submittable_records(user, q=""):
         .select_related("owner_department")
         .order_by("due_at", "reference_no")
     )
-    q = (q or "").strip()
-    if q:
-        qs = qs.filter(reference_no__icontains=q)
-    return qs[:10]
+    q = _fold(q).strip()
+    if not q:
+        return list(qs[:10])
+    return [r for r in qs[:200] if q in _fold(r.reference_no) or q in _fold(r.description_short)][:10]
 
 
 def quick_submit(request):
@@ -430,14 +443,15 @@ def quick_submit(request):
     user = request.user
     _require_business(user)
     if request.method == "GET":
+        selected = None
+        if rid := request.GET.get("record"):
+            selected = WorkRecord.objects.filter(pk=rid).first()
+            if selected is None or not policies.can_submit_result(user, selected):
+                selected = None
         return render(
             request,
             "records/_quick_submit_modal.html",
-            {
-                "form": SubmitResultForm(),
-                "records": _submittable_records(user),
-                "selected_id": request.GET.get("record", ""),
-            },
+            {"form": SubmitResultForm(), "selected": selected},
         )
     form = SubmitResultForm(request.POST)
     record_id = request.POST.get("record", "")
@@ -464,29 +478,36 @@ def quick_submit(request):
     if not request.htmx:
         messages.error(request, error or "Dữ liệu không hợp lệ.")
         return redirect("records:list")
+    selected = WorkRecord.objects.filter(pk=record_id).first() if record_id else None
     return render(
         request,
         "records/_quick_submit_modal.html",
-        {
-            "form": form,
-            "records": _submittable_records(user),
-            "selected_id": record_id,
-            "error": error,
-        },
+        {"form": form, "selected": selected, "error": error},
     )
 
 
 @require_GET
 def quick_submit_search(request):
+    """Combobox options for the record picker (accent-insensitive q)."""
     _require_business(request.user)
     return render(
         request,
-        "records/_quick_submit_rows.html",
-        {
-            "records": _submittable_records(request.user, request.GET.get("q")),
-            "selected_id": request.GET.get("record", ""),
-        },
+        "records/_quick_submit_options.html",
+        {"records": _submittable_records(request.user, request.GET.get("q"))},
     )
+
+
+@require_GET
+def quick_submit_pick(request):
+    """Select one record into the picker chip; clears the dropdown + search text via OOB swaps."""
+    user = request.user
+    _require_business(user)
+    selected = None
+    if rid := request.GET.get("record"):
+        selected = WorkRecord.objects.filter(pk=rid).first()
+        if selected is None or not policies.can_submit_result(user, selected):
+            selected = None
+    return render(request, "records/_quick_submit_pick.html", {"selected": selected})
 
 
 def _mutate(request, pk, form_cls, action, ok_message, form_key):
@@ -581,6 +602,7 @@ def record_edit(request, pk):
                 "owner_department": record.owner_department_id,
                 "folder": record.folder_id,
                 "due_date": local_date(record.due_at),
+                "description_short": record.description_short,
                 "assignees": [a.user_id for a in record.assignees.filter(is_active=True)],
                 "watchers": [w.user_id for w in record.watchers.filter(is_active=True)],
             },
@@ -598,6 +620,8 @@ def _apply_edit(user, record, cd):
         folder_services.move_record(user, record.pk, new_folder)
     if cd["reference_no"] != record.reference_no:
         services.update_reference_no(user, record.pk, cd["reference_no"])
+    if cd["description_short"] != record.description_short:
+        services.update_description(user, record.pk, cd["description_short"])
     if cd["owner_department"].pk != record.owner_department_id:
         services.update_owner_department(user, record.pk, cd["owner_department"])
     current = sorted(record.assignees.filter(is_active=True).values_list("user_id", flat=True))
