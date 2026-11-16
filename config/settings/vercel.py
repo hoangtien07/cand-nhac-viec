@@ -1,5 +1,7 @@
 """Settings for the synthetic-data Vercel + Neon demo."""
 
+import certifi
+
 from .base import env
 from .demo import *  # noqa: F403
 
@@ -9,7 +11,7 @@ DATABASES["default"].update(  # noqa: F405
     USER=env("POSTGRES_USER", required=True),
     CONN_MAX_AGE=0,
     DISABLE_SERVER_SIDE_CURSORS=True,
-    OPTIONS={"connect_timeout": 15, "sslmode": "verify-full", "sslrootcert": "system"},
+    OPTIONS={"connect_timeout": 15, "sslmode": "verify-full", "sslrootcert": certifi.where()},
 )
 
 # Vercel serves collected assets via its CDN. The vendored Chart.js references

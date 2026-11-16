@@ -43,6 +43,7 @@ name = "cand-pocketops"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "django" },
     { name = "django-axes" },
     { name = "django-htmx" },
@@ -62,6 +63,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2025.10.5" },
     { name = "django", specifier = ">=5.2.19,<5.3" },
     { name = "django-axes", specifier = ">=9.0,<10" },
     { name = "django-htmx", specifier = ">=1.29,<2" },

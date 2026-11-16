@@ -2,6 +2,8 @@ import os
 import subprocess
 import sys
 
+import certifi
+
 
 def test_vercel_settings_require_explicit_database_configuration():
     env = os.environ.copy()
@@ -33,7 +35,7 @@ def test_vercel_settings_enforce_tls_and_disable_persistent_connections():
         "db = DATABASES['default']; "
         "assert db['HOST'] == 'example.neon.tech'; "
         "assert db['OPTIONS']['sslmode'] == 'verify-full'; "
-        "assert db['OPTIONS']['sslrootcert'] == 'system'; "
+        f"assert db['OPTIONS']['sslrootcert'] == {certifi.where()!r}; "
         "assert db['CONN_MAX_AGE'] == 0"
     )
     result = subprocess.run(

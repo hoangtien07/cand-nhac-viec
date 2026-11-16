@@ -4,7 +4,7 @@ Chỉ dùng dữ liệu giả lập. Đây là cấu hình bổ sung; Compose tr
 
 ## 1. Neon
 
-Tạo project PostgreSQL 16+, chọn region gần Vercel. Từ Connect lấy database, user, password và hostname. Dùng hostname pooled cho web và hostname direct cho migration, seed và job. Kết nối bắt buộc TLS, xác minh chứng chỉ bằng trust store hệ thống (`sslrootcert=system`, cần libpq 16+). Tách database demo, preview và local; đừng kết nối preview vào database demo chính. Neon Free có thể scale về zero và làm chậm kết nối đầu tiên.
+Tạo project PostgreSQL 16+, chọn region gần Vercel. Từ Connect lấy database, user, password và hostname. Dùng hostname pooled cho web và hostname direct cho migration, seed và job. Kết nối bắt buộc TLS, xác minh chứng chỉ và hostname bằng CA bundle của certifi. Tách database demo, preview và local; đừng kết nối preview vào database demo chính. Neon Free có thể scale về zero và làm chậm kết nối đầu tiên.
 
 ## 2. Cấu hình Vercel
 
