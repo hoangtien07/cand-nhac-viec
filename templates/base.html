@@ -21,6 +21,7 @@
   {% if user.is_authenticated %}{% include "components/_footer.html" %}
   </div>{% else %}
   <p class="po-auth-note">Bản demo sử dụng dữ liệu giả lập, chưa được tích hợp với hệ thống nghiệp vụ.</p>{% endif %}
+  <div id="modal-root"></div>
   {% block scripts %}{% endblock %}
 </body>
 </html>

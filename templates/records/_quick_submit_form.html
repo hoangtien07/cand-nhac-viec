@@ -1,0 +1,20 @@
+<div class="po-modal-body">
+  <div class="mb-3">
+    <label class="label" for="qs-search">Tìm hồ sơ theo số hiệu gốc</label>
+    <input id="qs-search" name="q" type="search" class="input" placeholder="Nhập số hiệu gốc..." autocomplete="off"
+      hx-get="{% url 'records:quick_submit_search' %}" hx-target="#qs-records" hx-swap="innerHTML" hx-trigger="input changed delay:300ms" hx-include="[name='record']:checked">
+  </div>
+  <form method="post" action="{% url 'records:quick_submit' %}" hx-post="{% url 'records:quick_submit' %}" hx-target="#modal-root" hx-swap="innerHTML">
+    {% csrf_token %}
+    <div id="qs-records" class="po-modal-list" role="radiogroup" aria-label="Hồ sơ được phép nộp">
+      {% include "records/_quick_submit_rows.html" %}
+    </div>
+    <div class="mt-3">{% include "_field.html" with f=form.code %}</div>
+    {% if error %}<p class="mt-2 text-sm text-red-700" role="alert">{{ error }}</p>{% endif %}
+    <p class="mt-1 text-sm text-slate-600">Lần nộp số hiệu đầu tiên sẽ đánh dấu hồ sơ Đã hoàn thành ngay.</p>
+    <footer class="po-modal-foot">
+      <button type="button" class="btn-secondary" data-modal-close>Hủy</button>
+      <button type="submit" class="btn-primary">Xác nhận nộp</button>
+    </footer>
+  </form>
+</div>

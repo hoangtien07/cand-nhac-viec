@@ -21,10 +21,25 @@
 
   function openPopovers() { return document.querySelectorAll("details[data-popover][open]"); }
 
+  function closeModal() {
+    var root = document.getElementById("modal-root");
+    if (root) root.innerHTML = "";
+  }
+
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
     openPopovers().forEach(function (d) { d.open = false; d.querySelector("summary").focus(); });
     if (sidebar && sidebar.classList.contains("is-open")) { setDrawer(false); toggle.focus(); }
+    closeModal();
+  });
+  document.addEventListener("click", function (e) {
+    if (e.target.closest && e.target.closest("[data-modal-close]")) closeModal();
+  });
+  document.addEventListener("htmx:afterSwap", function (e) {
+    if (e.target.id === "modal-root") {
+      var field = e.target.querySelector(".po-modal input:not([type=radio]), .po-modal button");
+      if (field) field.focus();
+    }
   });
   document.addEventListener("click", function (e) {
     var opener = e.target.closest && e.target.closest("[data-open-popover]");

@@ -11,7 +11,7 @@
         <div class="card absolute right-0 mt-1 z-20 w-48 p-1 shadow-lg">
           <a class="po-menu-item" href="{% url 'records:detail' r.pk %}">Xem chi tiết</a>
           {% if r.row_can_edit %}<a class="po-menu-item" href="{% url 'records:edit' r.pk %}">Sửa hồ sơ</a>{% endif %}
-          {% if r.row_can_submit %}<a class="po-menu-item" href="{% url 'records:detail' r.pk %}#nop-ket-qua">Nộp kết quả</a>{% endif %}
+          {% if r.row_can_submit %}<button type="button" class="po-menu-item" hx-get="{% url 'records:quick_submit' %}?record={{ r.pk }}" hx-target="#modal-root" hx-swap="innerHTML">Nộp kết quả</button>{% endif %}
           {% if r.row_can_archive %}<a class="po-menu-item text-red-700" href="{% url 'records:detail' r.pk %}#h-archive">Lưu trữ hồ sơ</a>{% endif %}
         </div>
       </details>

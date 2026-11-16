@@ -168,6 +168,53 @@ def test_restore_returns_record_to_active_lists(org, client_for):
     assert AuditEvent.objects.filter(record=rec, action="record.restored").exists()
 
 
+# ---------- Quick-submit modal (nop-nhanh) ----------
+
+
+@pytest.mark.django_db
+def test_quick_submit_modal_lists_only_submittable(org, client_for):
+    make_record(org.leader, org.d1, [org.o1], ref="QS-1")
+    make_record(org.leader, org.d1, [org.o1b], ref="QS-2")  # not mine
+    rec_done = make_record(org.leader, org.d1, [org.o1], ref="QS-3")
+    _submit(org.o1, rec_done, "KQ-D1")  # DONE vẫn nộp bổ sung được
+    res = client_for(org.o1).get("/ho-so/nop-nhanh/")
+    assert res.status_code == 200
+    body = res.content.decode()
+    assert "QS-1" in body and "QS-3" in body and "QS-2" not in body
+    # manager/leader không có hồ sơ nào trong danh sách
+    res = client_for(org.mgr1).get("/ho-so/nop-nhanh/")
+    assert "QS-1" not in res.content.decode()
+
+
+@pytest.mark.django_db
+def test_quick_submit_search_filters(org, client_for):
+    make_record(org.leader, org.d1, [org.o1], ref="QS-AB")
+    make_record(org.leader, org.d1, [org.o1], ref="QS-CD")
+    res = client_for(org.o1).get("/ho-so/nop-nhanh/tim/", {"q": "QS-AB"})
+    body = res.content.decode()
+    assert "QS-AB" in body and "QS-CD" not in body
+
+
+@pytest.mark.django_db
+def test_quick_submit_post(org, client_for):
+    rec = make_record(org.leader, org.d1, [org.o1], ref="QS-4")
+    c = client_for(org.o1)
+    # thiếu record -> báo lỗi trong modal, không mutation
+    res = c.post("/ho-so/nop-nhanh/", {"code": "KQ-9"}, HTTP_HX_REQUEST="true")
+    assert "Chọn một hồ sơ" in res.content.decode()
+    rec.refresh_from_db()
+    assert rec.status == RecordStatus.OPEN
+    # record không được nộp -> lỗi quyền
+    other = make_record(org.leader, org.d1, [org.o1b], ref="QS-5")
+    res = c.post("/ho-so/nop-nhanh/", {"record": str(other.pk), "code": "KQ-9"}, HTTP_HX_REQUEST="true")
+    assert "không có quyền" in res.content.decode()
+    # hợp lệ -> HX-Redirect tới chi tiết + DONE
+    res = c.post("/ho-so/nop-nhanh/", {"record": str(rec.pk), "code": "KQ-9"}, HTTP_HX_REQUEST="true")
+    assert res["HX-Redirect"].endswith("#ket-qua")
+    rec.refresh_from_db()
+    assert rec.status == RecordStatus.DONE
+
+
 # ---------- Result corrections (spec §6) ----------
 
 

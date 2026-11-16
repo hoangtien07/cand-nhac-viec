@@ -406,6 +406,89 @@ def submit_result(request, pk):
     return HttpResponseClientRedirect(url) if request.htmx else redirect(url)
 
 
+def _submittable_records(user, q=""):
+    """Records the user may submit a result code for (same unit, active assignee, not archived)."""
+    qs = (
+        WorkRecord.objects.filter(
+            unit=user.unit,
+            archived_at__isnull=True,
+            assignees__user=user,
+            assignees__is_active=True,
+        )
+        .select_related("owner_department")
+        .order_by("due_at", "reference_no")
+    )
+    q = (q or "").strip()
+    if q:
+        qs = qs.filter(reference_no__icontains=q)
+    return qs[:10]
+
+
+def quick_submit(request):
+    """GET: modal pick-a-record + code form, loaded into #modal-root via HTMX.
+    POST: submit the result code through the same locked service path."""
+    user = request.user
+    _require_business(user)
+    if request.method == "GET":
+        return render(
+            request,
+            "records/_quick_submit_modal.html",
+            {
+                "form": SubmitResultForm(),
+                "records": _submittable_records(user),
+                "selected_id": request.GET.get("record", ""),
+            },
+        )
+    form = SubmitResultForm(request.POST)
+    record_id = request.POST.get("record", "")
+    error = None
+    if form.is_valid():
+        if not record_id:
+            error = "Chọn một hồ sơ trong danh sách."
+        else:
+            try:
+                outcome = services.submit_result_reference(user, record_id, form.cleaned_data["code"])
+            except WorkRecord.DoesNotExist:
+                error = "Không tìm thấy hồ sơ hoặc bạn không có quyền nộp kết quả."
+            except ValidationError as e:
+                form.add_error("code", e)
+            else:
+                if outcome.completed_record:
+                    messages.success(request, "Đã nộp số hiệu. Hồ sơ đã HOÀN THÀNH.")
+                elif outcome.created:
+                    messages.success(request, "Đã bổ sung số hiệu kết quả.")
+                else:
+                    messages.info(request, "Số hiệu này đã được nộp trước đó; không tạo bản ghi trùng.")
+                url = reverse("records:detail", args=[outcome.result.record_id]) + "#ket-qua"
+                return HttpResponseClientRedirect(url) if request.htmx else redirect(url)
+    if not request.htmx:
+        messages.error(request, error or "Dữ liệu không hợp lệ.")
+        return redirect("records:list")
+    return render(
+        request,
+        "records/_quick_submit_modal.html",
+        {
+            "form": form,
+            "records": _submittable_records(user),
+            "selected_id": record_id,
+            "error": error,
+        },
+    )
+
+
+@require_GET
+def quick_submit_search(request):
+    _require_business(request.user)
+    return render(
+        request,
+        "records/_quick_submit_rows.html",
+        {
+            "records": _submittable_records(request.user, request.GET.get("q")),
+            "selected_id": request.GET.get("record", ""),
+        },
+    )
+
+
 def _mutate(request, pk, form_cls, action, ok_message, form_key):
     user = request.user
     _require_business(user)
