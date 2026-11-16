@@ -197,25 +197,30 @@ def reminders_for(user, year, now, limit=3):
 
 def quick_actions(user):
     """Shortcuts the backend actually permits; disabled entries are never rendered."""
-    dash = reverse("dashboard")
     actions = [
         (
             "Tạo hồ sơ công việc",
             "plus-square",
             reverse("records:create"),
             policies.creatable_departments(user).exists(),
+            "",
         ),
-        ("Danh sách hồ sơ", "layers", reverse("records:list"), user.is_business_user),
+        ("Danh sách hồ sơ", "layers", reverse("records:list"), user.is_business_user, ""),
         (
             "Nộp kết quả (số hiệu)",
             "upload",
-            dash + query_string({}, tab="all") + "#dashboard-work",
+            reverse("records:list"),
             user.is_business_user,
+            reverse("records:quick_submit"),
         ),
-        ("Báo cáo thống kê", "bar-chart", reverse("reports:report"), policies.can_view_reports(user)),
-        ("Quản lý người dùng", "users", reverse("adminpanel:home"), user.is_sys_admin),
+        ("Báo cáo thống kê", "bar-chart", reverse("reports:report"), policies.can_view_reports(user), ""),
+        ("Quản lý người dùng", "users", reverse("adminpanel:home"), user.is_sys_admin, ""),
     ]
-    return [{"label": a, "icon": i, "href": h, "enabled": bool(e)} for a, i, h, e in actions if e]
+    return [
+        {"label": a, "icon": i, "href": h, "hx_get": g}
+        for a, i, h, e, g in actions
+        if e
+    ]
 
 
 def get_dashboard_data(*, user, year, tab, q, page_number, now, department="", due="", month=""):
