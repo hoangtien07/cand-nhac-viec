@@ -102,3 +102,30 @@ class GrantForm(forms.Form):
         if data.get("scope") == "DEPARTMENT" and not data.get("department"):
             self.add_error("department", "Chọn phòng/đội cho phạm vi theo tổ.")
         return data
+
+
+class ReminderForm(forms.Form):
+    subject_user = forms.UUIDField(label="Cán bộ")
+    reason = forms.CharField(label="Lý do nhắc nhở", max_length=200)
+    idempotency_key = forms.CharField(max_length=64)
+
+
+class EvaluationMarksForm(forms.Form):
+    """One Decimal input per criterion: mark-<criterion_id>."""
+
+    def __init__(self, *args, evaluation=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if evaluation is not None:
+            for c in evaluation.policy_version.criteria.all():
+                self.fields[f"mark-{c.pk}"] = forms.DecimalField(
+                    label=f"{c.code} — {c.title}", min_value=0, max_value=100,
+                    max_digits=5, decimal_places=2, required=False,
+                )
+            self.fields["row_version"] = forms.IntegerField(min_value=1, required=False)
+
+    def marks(self):
+        out = {}
+        for name, value in self.cleaned_data.items():
+            if name.startswith("mark-") and value is not None:
+                out[name[5:]] = value
+        return out

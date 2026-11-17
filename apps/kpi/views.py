@@ -221,3 +221,147 @@ def config_publish(request, version_id):
     else:
         messages.error(request, "Cần nhập lý do xác nhận.")
     return redirect("kpi:config_detail", version_id)
+
+
+# --- WP5: reminders + evaluation ---
+
+from . import evaluation_services as esvc  # noqa: E402
+from . import reminder_services as rsvc  # noqa: E402
+from .forms import EvaluationMarksForm, ReminderForm  # noqa: E402
+from .models import KpiEvaluation  # noqa: E402
+
+
+@kpi_view
+@require_POST
+def reminder_issue(request, record_id):
+    form = ReminderForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Dữ liệu nhắc nhở không hợp lệ.")
+        return redirect("records:detail", record_id)
+    try:
+        rsvc.issue_reminder(
+            request.user, record_id=record_id,
+            subject_user_id=form.cleaned_data["subject_user"],
+            reason=form.cleaned_data["reason"],
+            idempotency_key=form.cleaned_data["idempotency_key"],
+        )
+        messages.success(request, "Đã ghi nhận nhắc nhở KPI.")
+    except ValidationError as e:
+        for m in e.messages:
+            messages.error(request, m)
+    return redirect("records:detail", record_id)
+
+
+@kpi_view
+@require_POST
+def reminder_revoke(request, event_id):
+    reason = (request.POST.get("reason") or "").strip()
+    try:
+        rsvc.revoke_reminder(request.user, event_id=event_id, reason=reason)
+        messages.success(request, "Đã hủy nhắc nhở KPI.")
+    except ValidationError as e:
+        for m in e.messages:
+            messages.error(request, m)
+    return redirect(request.POST.get("next") or "/")
+
+
+@kpi_view
+@require_POST
+def evaluation_start(request, record_id, subject_user_id):
+    try:
+        evaluation, _created = esvc.get_or_create_evaluation(
+            request.user, record_id=record_id, subject_user_id=subject_user_id
+        )
+    except ValidationError as e:
+        for m in e.messages:
+            messages.error(request, m)
+        return redirect("records:detail", record_id)
+    return redirect("kpi:evaluation_detail", evaluation.pk)
+
+
+@kpi_view
+def evaluation_detail(request, evaluation_id):
+    try:
+        evaluation = esvc._evaluation_in_unit(request.user, evaluation_id)
+    except KpiEvaluation.DoesNotExist:
+        raise Http404 from None
+    user = request.user
+    scoped = policies.user_departments_scope(user, KpiCapability.EVALUATE)
+    can_mark = policies.can_evaluate(user, evaluation.record.owner_department_id)
+    can_close = policies.can_finalize(user, evaluation.record.owner_department_id)
+    can_fix = policies.can_correct_score(user, evaluation.record.owner_department_id)
+    is_owner = user.pk == evaluation.subject_user_id
+    if not (can_mark or can_close or is_owner):
+        raise PermissionDenied("Bạn không có quyền xem đánh giá này.")
+    if is_owner and evaluation.status != "FINALIZED":
+        raise Http404  # officer chỉ xem điểm đã chốt của mình
+    form = EvaluationMarksForm(evaluation=evaluation, data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            esvc.save_marks(
+                user, evaluation_id, form.marks(),
+                expected_row_version=request.POST.get("row_version"),
+            )
+            messages.success(request, "Đã lưu đánh giá.")
+            return redirect("kpi:evaluation_detail", evaluation_id)
+        except ValidationError as e:
+            for m in e.messages:
+                form.add_error(None, m)
+    marks = {str(m.criterion_id): m for m in evaluation.marks.all()}
+    preview = esvc.score_preview(evaluation) if can_mark or can_close else None
+    snapshot = esvc.effective_snapshot(evaluation)
+    criteria = list(evaluation.policy_version.criteria.all())
+    mark_rows = [(c, form[f"mark-{c.pk}"], marks.get(str(c.pk))) for c in criteria]
+    return render(request, "kpi/evaluation_detail.html", {
+        "evaluation": evaluation, "form": form, "marks": marks,
+        "criteria": criteria, "mark_rows": mark_rows,
+        "can_mark": can_mark and evaluation.status == "DRAFT",
+        "can_close": can_close and evaluation.status == "DRAFT",
+        "can_fix": can_fix and evaluation.status == "FINALIZED",
+        "preview": preview, "snapshot": snapshot,
+        "scoped": scoped,
+    })
+
+
+@kpi_view
+@require_POST
+def evaluation_finalize(request, evaluation_id):
+    try:
+        esvc._evaluation_in_unit(request.user, evaluation_id)
+    except KpiEvaluation.DoesNotExist:
+        raise Http404 from None
+    try:
+        esvc.finalize_evaluation(
+            request.user, evaluation_id,
+            expected_row_version=request.POST.get("row_version"),
+        )
+        messages.success(request, "Đã chốt điểm KPI.")
+    except ValidationError as e:
+        for m in e.messages:
+            messages.error(request, m)
+    return redirect("kpi:evaluation_detail", evaluation_id)
+
+
+@kpi_view
+@require_POST
+def evaluation_correct(request, evaluation_id):
+    try:
+        esvc._evaluation_in_unit(request.user, evaluation_id)
+    except KpiEvaluation.DoesNotExist:
+        raise Http404 from None
+    reason = (request.POST.get("reason") or "").strip()
+    marks = {}
+    for key, value in request.POST.items():
+        if key.startswith("mark-"):
+            marks[key[5:]] = value
+    try:
+        esvc.correct_score(
+            request.user, evaluation_id, reason=reason,
+            marks=marks or None, expected_row_version=request.POST.get("row_version"),
+        )
+        messages.success(request, "Đã tạo bản điều chỉnh điểm.")
+    except ValidationError as e:
+        for m in e.messages:
+            messages.error(request, m)
+    return redirect("kpi:evaluation_detail", evaluation_id)
+
