@@ -9,7 +9,6 @@
     <section class="po-kpis" aria-label="Tổng quan hồ sơ được giao">
       {% include "components/_kpi_card.html" with tone="danger" icon="clipboard" count=counts.overdue label="Quá hạn" href=kpi_hrefs.overdue testid="dashboard-kpi-overdue" arrow=True %}
       {% include "components/_kpi_card.html" with tone="warning" icon="clock" count=counts.due_soon label="Sắp đến hạn" href=kpi_hrefs.due_soon testid="dashboard-kpi-soon" arrow=True %}
-      {% include "components/_kpi_card.html" with tone="info" icon="layers" count=counts.processing label="Đang xử lý" href=kpi_hrefs.processing testid="dashboard-kpi-processing" %}
       {% include "components/_kpi_card.html" with tone="success" icon="check-circle" count=counts.done label="Đã hoàn thành" href=kpi_hrefs.done testid="dashboard-kpi-done" %}
     </section>
     <section class="card po-work" aria-labelledby="h-mywork">

@@ -1,4 +1,4 @@
-"""A04–A07 create/assign/watchers/deadline + A24 audit."""
+"""A04–A07 create/assign/deadline + A24 audit (STT2: watchers UI retired)."""
 
 import datetime
 
@@ -69,20 +69,26 @@ def test_leader_assigns_two_departments_without_widening_scope(org, client_for):
     assert client_for(org.o2).get(f"/ho-so/{other.pk}/").status_code == 404
 
 
-def test_three_assignees_two_watchers_displayed(org, client_for):
+def test_three_assignees_displayed_watchers_not_in_ui(org, client_for):
+    """STT2: legacy watcher rows still exist (history) but are not rendered on the UI."""
     rec = make_record(org.leader, org.d1, [org.o1, org.o1b, org.o2], watchers=[org.mgr2, org.o2b])
     assert RecordAssignee.objects.filter(record=rec).count() == 3
     assert RecordWatcher.objects.filter(record=rec).count() == 2
     body = client_for(org.o1).get(f"/ho-so/{rec.pk}/").content.decode()
-    for u in (org.o1, org.o1b, org.o2, org.mgr2, org.o2b):
+    for u in (org.o1, org.o1b, org.o2):
         assert u.full_name in body
+    assert "Người theo dõi" not in body
 
 
 def test_assignment_watchers_deadline_changes_are_audited_and_soft(org, client_for):
     rec = make_record(org.mgr1, org.d1, [org.o1, org.o1b])
     c = client_for(org.mgr1)
     assert c.post(f"/ho-so/{rec.pk}/nguoi-xu-ly/", {"assignees": [org.o1.pk, org.o1c.pk]}).status_code == 302
-    assert c.post(f"/ho-so/{rec.pk}/theo-doi/", {"watchers": [org.o2.pk]}).status_code == 302
+    # STT2: watcher management endpoint retired — 404 from UI/API.
+    assert c.post(f"/ho-so/{rec.pk}/theo-doi/", {"watchers": [org.o2.pk]}).status_code == 404
+    # legacy row still manageable via service only (no hard delete of history)
+    services.update_watchers(org.mgr1, rec.pk, [org.o2])
+    assert RecordWatcher.objects.filter(record=rec, user=org.o2, is_active=True).exists()
     new_day = today() + datetime.timedelta(days=9)
     assert c.post(f"/ho-so/{rec.pk}/han/", {"due_date": new_day.isoformat()}).status_code == 302
     removed = RecordAssignee.objects.get(record=rec, user=org.o1b)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from django.apps import apps as django_apps
-from django.core.management import CommandError, call_command
+from django.core.management import call_command
 from django.db import models
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -50,16 +50,22 @@ def test_seed_is_synthetic_and_has_no_fixed_password(tmp_path, monkeypatch):
     cred = tmp_path / "c.txt"
     call_command("seed_demo", credentials_file=str(cred))
     from apps.accounts.models import User
+    from apps.organization.models import Department, Unit
     from apps.records.models import WorkRecord
 
-    assert User.objects.count() == 15 and WorkRecord.objects.count() == 6
+    assert User.objects.count() == 14 and WorkRecord.objects.count() == 5
     assert all("giả lập" in u.full_name for u in User.objects.all())
-    assert all(u.unit.name.startswith("Đơn vị Giả lập") for u in User.objects.all())
+    assert all("giả lập" in u.unit.name for u in User.objects.all())
+    # STT8/STT9: 5 tổ công tác + 2 lãnh đạo + 5 cán bộ ở phường A
+    ua = Unit.objects.get(name__contains="phường A")
+    assert Department.objects.filter(unit=ua).count() == 5
+    assert User.objects.filter(unit=ua, role="LEADER").count() == 2
+    assert User.objects.filter(unit=ua, role="OFFICER").count() == 5
     pws = [line.split("\t")[1] for line in cred.read_text().splitlines()]
-    assert len(set(pws)) == 15 and all(len(p) >= 16 for p in pws)
+    assert len(set(pws)) == 14 and all(len(p) >= 16 for p in pws)
     assert oct(cred.stat().st_mode & 0o777) == "0o600"
-    with pytest.raises(CommandError):
-        call_command("seed_demo", credentials_file=str(cred))  # refuses non-empty DB
+    call_command("seed_demo", credentials_file=str(cred))  # idempotent: no dupes, no error
+    assert User.objects.count() == 14 and WorkRecord.objects.count() == 5
     overdue = WorkRecord.objects.get(reference_no="GL-002/2026")
     assert overdue.notifications.filter(type="OVERDUE").exists()
 

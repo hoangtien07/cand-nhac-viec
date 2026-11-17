@@ -22,9 +22,12 @@ def _labels(resp):
 
 def test_quick_actions_hide_unauthorized_admin_and_create(org, client_for):
     labels = _labels(client_for(org.o1).get("/"))
-    assert {"Tạo hồ sơ công việc", "Danh sách hồ sơ", "Nộp kết quả (số hiệu)", "Báo cáo thống kê"} <= set(
-        labels
-    )
+    assert {
+        "Thêm nhiệm vụ",
+        "Công tác tham mưu, xử lý văn bản",
+        "Nộp kết quả (số hiệu)",
+        "Thống kê nhiệm vụ công việc",
+    } <= set(labels)
     for who in ("leader", "mgr1", "o1"):
         body = client_for(getattr(org, who)).get("/").content.decode()
         assert "Quản lý người dùng" not in body and reverse("adminpanel:home") not in body

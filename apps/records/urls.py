@@ -21,7 +21,8 @@ urlpatterns = [
     path("<uuid:pk>/ket-qua/<uuid:result_id>/dinh-chinh/", views.correct_result, name="correct"),
     path("<uuid:pk>/ket-qua/<uuid:result_id>/huy/", views.revoke_result, name="revoke"),
     path("<uuid:pk>/nguoi-xu-ly/", views.update_assignment, name="assignment"),
-    path("<uuid:pk>/theo-doi/", views.update_watchers, name="watchers"),
+    # STT2: watcher management UI/endpoint retired (D13: no new watchers; legacy rows keep
+    # their read access until a migration decision is approved).
     path("<uuid:pk>/han/", views.update_deadline, name="deadline"),
     path("<uuid:pk>/chia-se/", folder_views.share_record, name="share"),
     path("<uuid:pk>/chia-se/<int:share_id>/thu-hoi/", folder_views.unshare_record, name="unshare"),

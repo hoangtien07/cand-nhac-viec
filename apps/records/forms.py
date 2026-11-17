@@ -41,19 +41,12 @@ class RecordCreateForm(DueDateMixin, forms.Form):
     assignees = UserChoiceField(
         label="Người xử lý (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
     )
-    watchers = UserChoiceField(
-        label="Người theo dõi (không bắt buộc)",
-        queryset=None,
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-    )
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
         self.fields["owner_department"].queryset = policies.creatable_departments(user)
         self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, None))
-        self.fields["watchers"].queryset = _user_qs(policies.watchable_users(user))
 
     def clean_reference_no(self):
         try:
@@ -70,14 +63,8 @@ class AssignmentForm(forms.Form):
         self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, record.owner_department))
 
 
-class WatchersForm(forms.Form):
-    watchers = UserChoiceField(
-        label="Người theo dõi", queryset=None, required=False, widget=forms.CheckboxSelectMultiple
-    )
-
-    def __init__(self, user, record, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["watchers"].queryset = _user_qs(policies.watchable_users(user))
+# STT2/D13: no new watchers via UI. WatchersForm removed; the update_watchers service stays
+# for legacy data maintenance only — it is no longer reachable from any view.
 
 
 class DeadlineForm(DueDateMixin, forms.Form):
@@ -114,12 +101,6 @@ class RecordEditForm(forms.Form):
     assignees = UserChoiceField(
         label="Người xử lý (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
     )
-    watchers = UserChoiceField(
-        label="Người theo dõi (không bắt buộc)",
-        queryset=None,
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-    )
 
     def __init__(self, user, record, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,7 +109,6 @@ class RecordEditForm(forms.Form):
         self.fields["owner_department"].queryset = policies.creatable_departments(user)
         self.fields["folder"].queryset = movable_folders(user, record)
         self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, record.owner_department))
-        self.fields["watchers"].queryset = _user_qs(policies.watchable_users(user))
 
     def clean_reference_no(self):
         try:

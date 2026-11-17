@@ -1,6 +1,6 @@
-{% extends "base.html" %}{% block title %}Tạo hồ sơ{% endblock %}
+{% extends "base.html" %}{% block title %}Thêm nhiệm vụ{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Tạo hồ sơ công việc</h1>
+<h1 class="text-2xl font-bold mb-4">Thêm nhiệm vụ</h1>
 <form method="post" class="card space-y-5 max-w-3xl" novalidate>{% csrf_token %}
   {% if form.non_field_errors %}<div class="msg msg-error" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
   {% include "_field.html" with f=form.reference_no %}

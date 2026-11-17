@@ -20,11 +20,12 @@ from .queries import attach_state, deadline_state, due_soon, due_soon_cutoff, ov
 from .timeutils import VN_TZ, local_date
 from .ui_state import filter_created_in_work_year, work_year_bounds
 
+# STT1: 'Đang xử lý' tab/card removed from the UI; OPEN still exists in the DB and
+# still drives overdue computation (RECORD_STATUS unchanged).
 TABS = {
     "all": "Tất cả",
     "overdue": "Quá hạn",
     "due_soon": "Sắp đến hạn",
-    "processing": "Đang xử lý",
     "done": "Hoàn thành",
 }
 PAGE_SIZE = 8
@@ -57,8 +58,6 @@ def partition(qs, tab, now):
         return overdue(qs, now)
     if tab == "due_soon":
         return due_soon(qs, now)
-    if tab == "processing":
-        return qs.filter(status=RecordStatus.OPEN, due_at__gte=due_soon_cutoff(now))
     if tab == "done":
         return qs.filter(status=RecordStatus.DONE)
     return qs
@@ -199,13 +198,19 @@ def quick_actions(user):
     """Shortcuts the backend actually permits; disabled entries are never rendered."""
     actions = [
         (
-            "Tạo hồ sơ công việc",
+            "Thêm nhiệm vụ",
             "plus-square",
             reverse("records:create"),
             policies.creatable_departments(user).exists(),
             "",
         ),
-        ("Danh sách hồ sơ", "layers", reverse("records:list"), user.is_business_user, ""),
+        (
+            "Công tác tham mưu, xử lý văn bản",
+            "layers",
+            reverse("records:list"),
+            user.is_business_user,
+            "",
+        ),
         (
             "Nộp kết quả (số hiệu)",
             "upload",
@@ -213,7 +218,13 @@ def quick_actions(user):
             user.is_business_user,
             reverse("records:quick_submit"),
         ),
-        ("Báo cáo thống kê", "bar-chart", reverse("reports:report"), policies.can_view_reports(user), ""),
+        (
+            "Thống kê nhiệm vụ công việc",
+            "bar-chart",
+            reverse("reports:report"),
+            policies.can_view_reports(user),
+            "",
+        ),
         ("Quản lý người dùng", "users", reverse("adminpanel:home"), user.is_sys_admin, ""),
     ]
     return [{"label": a, "icon": i, "href": h, "hx_get": g} for a, i, h, e, g in actions if e]

@@ -44,19 +44,19 @@ def test_dashboard_counts_partition_all_once(org, client_for):
     services.submit_result_reference(org.o1b, done.pk, "KQ-1")
     resp = get(client_for(org.o1))
     counts = resp.context["counts"]
-    assert counts == {"all": 4, "overdue": 1, "due_soon": 1, "processing": 1, "done": 1}
-    assert counts["all"] == sum(v for k, v in counts.items() if k != "all")
+    # STT1: no 'processing' count/tab; OPEN items stay visible via 'all'.
+    assert counts == {"all": 4, "overdue": 1, "due_soon": 1, "done": 1}
     assert refs(resp.content.decode()) == ["P-OVERDUE", "P-SOON", "P-PROC", "P-DONE"]
     for tab, expected in (
         ("overdue", "P-OVERDUE"),
         ("due_soon", "P-SOON"),
-        ("processing", "P-PROC"),
         ("done", "P-DONE"),
     ):
         assert refs(get(client_for(org.o1), tab=tab).content.decode()) == [expected], tab
     body = resp.content.decode()
-    for hook in ("overdue", "soon", "processing", "done"):
+    for hook in ("overdue", "soon", "done"):
         assert f'data-testid="dashboard-kpi-{hook}"' in body
+    assert "dashboard-kpi-processing" not in body
 
 
 def test_done_never_in_overdue(org, client_for):
@@ -99,11 +99,11 @@ def test_dashboard_filter_preserves_state(org, client_for):
     for i in range(10):
         make_record(org.leader, org.d1, [org.o1], ref=f"ABC-{i:02d}", days=6)
     c = client_for(org.o1)
-    resp = get(c, tab="processing", q="ABC")
+    resp = get(c, tab="all", q="ABC")
     body = resp.content.decode()
     assert len(refs(body)) == 8
     nxt = resp.context["next_href"]
-    assert "tab=processing" in nxt and "q=ABC" in nxt and "page=2" in nxt
+    assert "q=ABC" in nxt and "page=2" in nxt
     assert (
         "q=ABC" in resp.context["tab_links"][0]["href"]
         and "page=" not in resp.context["tab_links"][0]["href"]

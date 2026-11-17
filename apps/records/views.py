@@ -25,9 +25,8 @@ from .forms import (
     RecordFilterForm,
     RevokeResultForm,
     SubmitResultForm,
-    WatchersForm,
 )
-from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
+from .models import RecordAssignee, RecordStatus, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
 from .ui_state import SESSION_KEY, filter_created_in_work_year, get_active_work_year, parse_work_year
@@ -171,7 +170,6 @@ def record_create(request):
                 owner_department=cd["owner_department"],
                 due_date=cd["due_date"],
                 assignees=list(cd["assignees"]),
-                watchers=list(cd["watchers"]),
                 description_short=cd["description_short"],
             )
         except ValidationError as e:
@@ -300,13 +298,10 @@ def _detail_context(request, record, **extra):
     now = db_now()
     attach_state([record], now)
     assignees = RecordAssignee.objects.filter(record=record).select_related("user__department")
-    watchers = RecordWatcher.objects.filter(record=record).select_related("user__department")
     active_assignees = [a for a in assignees if a.is_active]
-    active_watchers = [w for w in watchers if w.is_active]
     perms = {
         "can_submit": policies.can_submit_result(user, record),
         "can_assign": policies.can_manage_assignment(user, record),
-        "can_watchers": policies.can_manage_watchers(user, record),
         "can_deadline": policies.can_edit_deadline(user, record),
         "can_edit": policies.can_edit_record_metadata(user, record),
         "can_archive": policies.can_archive_record(user, record),
@@ -327,7 +322,6 @@ def _detail_context(request, record, **extra):
         "now": now,
         "assignees": active_assignees,
         "former_assignees": [a for a in assignees if not a.is_active],
-        "watchers": active_watchers,
         "results": results,
         "audit_events": _audit_rows(record) if policies.can_view_audit(user, record) else [],
         "submit_form": SubmitResultForm(),
@@ -352,10 +346,6 @@ def _detail_context(request, record, **extra):
     if perms["can_assign"]:
         ctx["assignment_form"] = AssignmentForm(
             user, record, initial={"assignees": [a.user_id for a in active_assignees]}
-        )
-    if perms["can_watchers"]:
-        ctx["watchers_form"] = WatchersForm(
-            user, record, initial={"watchers": [w.user_id for w in active_watchers]}
         )
     if perms["can_deadline"]:
         ctx["deadline_form"] = DeadlineForm(initial={"due_date": local_date(record.due_at)})
@@ -545,20 +535,6 @@ def update_assignment(request, pk):
 
 
 @require_POST
-def update_watchers(request, pk):
-    record = _get_visible(request.user, pk)
-    policies.require(policies.can_manage_watchers(request.user, record))
-    return _mutate(
-        request,
-        pk,
-        WatchersForm,
-        lambda u, r, cd: services.update_watchers(u, r.pk, list(cd["watchers"])),
-        "Đã cập nhật người theo dõi.",
-        "watchers_form",
-    )
-
-
-@require_POST
 def update_deadline(request, pk):
     record = _get_visible(request.user, pk)
     policies.require(policies.can_edit_deadline(request.user, record))
@@ -604,7 +580,6 @@ def record_edit(request, pk):
                 "due_date": local_date(record.due_at),
                 "description_short": record.description_short,
                 "assignees": [a.user_id for a in record.assignees.filter(is_active=True)],
-                "watchers": [w.user_id for w in record.watchers.filter(is_active=True)],
             },
         )
     return render(request, "records/edit.html", {"record": record, "form": form})
@@ -627,9 +602,6 @@ def _apply_edit(user, record, cd):
     current = sorted(record.assignees.filter(is_active=True).values_list("user_id", flat=True))
     if sorted(u.pk for u in cd["assignees"]) != current:
         services.update_assignment(user, record.pk, list(cd["assignees"]))
-    current_w = sorted(record.watchers.filter(is_active=True).values_list("user_id", flat=True))
-    if sorted(u.pk for u in cd["watchers"]) != current_w:
-        services.update_watchers(user, record.pk, list(cd["watchers"]))
     if cd["due_date"] != local_date(record.due_at):
         services.update_deadline(user, record.pk, cd["due_date"])
 
