@@ -6,12 +6,14 @@
       {% if can_create_record %}{% url 'records:create' as u %}{% include "components/_nav_item.html" with href=u icon="plus-square" label="Thêm nhiệm vụ" active=nav_is_create %}{% endif %}
       {% url 'records:periodic_list' as u %}{% include "components/_nav_item.html" with href=u icon="refresh" label="Văn bản định kỳ" active=nav_is_periodic %}
       {% url 'reports:report' as u %}{% include "components/_nav_item.html" with href=u icon="bar-chart" label="Thống kê nhiệm vụ công việc" active=nav_is_reports %}
+      {% if kpi_can_config %}{% url 'kpi:config_list' as u %}{% include "components/_nav_item.html" with href=u icon="shield-check" label="Cấu hình KPI" active=nav_is_kpi %}{% endif %}
     {% endif %}
     {% if user.is_sys_admin %}
       {% url 'adminpanel:home' as u %}{% include "components/_nav_item.html" with href=u icon="shield" label="Quản trị" active=nav_is_admin %}
       <li><ul class="po-subnav">
         <li><a href="{% url 'adminpanel:home' %}#tai-khoan">{% include "components/_icon.html" with name="users" %}<span>Người dùng</span></a></li>
         <li><a href="{% url 'adminpanel:home' %}#phong-ban">{% include "components/_icon.html" with name="layers" %}<span>Phòng ban</span></a></li>
+        {% if kpi_can_grant %}<li><a href="{% url 'kpi_admin:grant_list' %}">{% include "components/_icon.html" with name="shield-check" %}<span>Quyền KPI</span></a></li>{% endif %}
       </ul></li>
     {% endif %}
   </ul></nav>

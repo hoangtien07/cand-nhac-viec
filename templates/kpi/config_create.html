@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block title %}Tạo bản nháp cấu hình KPI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Tạo bản nháp cấu hình KPI</h1>
+<form method="post" class="card space-y-5 max-w-2xl" novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}<div class="msg msg-error" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  {% include "_field.html" with f=form.task_kind %}
+  {% include "_field.html" with f=form.name %}
+  {% include "_field.html" with f=form.max_points %}
+  {% include "_field.html" with f=form.combination_strategy %}
+  {% include "_field.html" with f=form.clone_from %}
+  <button class="btn-primary">Tạo bản nháp</button>
+</form>
+{% endblock %}

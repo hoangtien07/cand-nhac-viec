@@ -1,0 +1,116 @@
+{% extends "base.html" %}{% block title %}{{ family.name }} v{{ version.version }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">{{ family.name }} — v{{ version.version }}
+    <span class="text-sm font-normal text-gray-600">({{ version.get_status_display }})</span></h1>
+  <a class="link" href="{% url 'kpi:config_list' %}">← Danh sách</a>
+</div>
+
+{% if is_draft %}<div class="msg msg-warn mb-4" role="alert">
+  Bản nháp — chưa được duyệt. Điểm tính từ phiên bản này chỉ là mô phỏng, không dùng cho kết quả chính thức.
+</div>{% endif %}
+{% if version.fingerprint %}<p class="text-xs text-gray-500 mb-3">Fingerprint: <code>{{ version.fingerprint }}</code></p>{% endif %}
+
+{% if validation_errors %}
+<div class="card mb-4"><h2 class="font-semibold mb-2">Kiểm tra trước kích hoạt</h2>
+  <ul class="list-disc pl-5 text-red-700">{% for e in validation_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% else %}
+<div class="msg msg-ok mb-4">Cấu hình hợp lệ — sẵn sàng kích hoạt.</div>
+{% endif %}
+
+{% if is_draft and can_edit %}
+<form method="post" class="card space-y-4 mb-4" novalidate>{% csrf_token %}
+  <input type="hidden" name="action" value="meta">
+  <h2 class="font-semibold">Thông tin phiên bản</h2>
+  {% if meta_form.non_field_errors %}<div class="msg msg-error">{{ meta_form.non_field_errors|join:" " }}</div>{% endif %}
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% include "_field.html" with f=meta_form.max_points %}
+    {% include "_field.html" with f=meta_form.combination_strategy %}
+  </div>
+  <button class="btn-primary">Lưu thông tin</button>
+</form>
+
+<form method="post" class="card mb-4 overflow-x-auto" novalidate>{% csrf_token %}
+  <input type="hidden" name="action" value="criteria">
+  <h2 class="font-semibold mb-2">Tiêu chí chấm điểm (tổng trọng số = 100)</h2>
+  {{ criteria_fs.management_form }}
+  {% if criteria_fs.non_form_errors %}<div class="msg msg-error">{{ criteria_fs.non_form_errors|join:" " }}</div>{% endif %}
+  <table class="po-table"><thead><tr>
+    <th>Mã</th><th>Tên tiêu chí</th><th>Trọng số %</th><th>TT</th><th>Mô tả</th><th>Bắt buộc</th><th>Xóa</th>
+  </tr></thead><tbody>
+  {% for f in criteria_fs %}<tr>
+    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+    <td>{{ f.code }}{{ f.code.errors }}</td>
+    <td>{{ f.title }}{{ f.title.errors }}</td>
+    <td>{{ f.weight_percent }}{{ f.weight_percent.errors }}</td>
+    <td>{{ f.position }}{{ f.position.errors }}</td>
+    <td>{{ f.description_short }}{{ f.description_short.errors }}</td>
+    <td>{{ f.required }}</td>
+    <td>{{ f.DELETE }}</td>
+  </tr>{% endfor %}
+  </tbody></table>
+  <p class="text-xs text-gray-500 mt-1">Mỗi lần lưu sẽ có thêm một dòng trống mới để nhập tiếp.</p>
+  <button class="btn-primary mt-2">Lưu tiêu chí</button>
+</form>
+
+<form method="post" class="card mb-4 overflow-x-auto" novalidate>{% csrf_token %}
+  <input type="hidden" name="action" value="bands">
+  <h2 class="font-semibold mb-2">Dải trừ (phủ từ 0, không hở, dải cuối để mở)</h2>
+  {{ bands_fs.management_form }}
+  {% if bands_fs.non_form_errors %}<div class="msg msg-error">{{ bands_fs.non_form_errors|join:" " }}</div>{% endif %}
+  <table class="po-table"><thead><tr>
+    <th>Loại dải</th><th>Từ</th><th>Đến (trống = mở)</th><th>% trừ</th><th>Xóa</th>
+  </tr></thead><tbody>
+  {% for f in bands_fs %}<tr>
+    {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+    <td>{{ f.kind }}{{ f.kind.errors }}</td>
+    <td>{{ f.min_value }}{{ f.min_value.errors }}</td>
+    <td>{{ f.max_value }}{{ f.max_value.errors }}</td>
+    <td>{{ f.deduction_percent }}{{ f.deduction_percent.errors }}</td>
+    <td>{{ f.DELETE }}</td>
+  </tr>{% endfor %}
+  </tbody></table>
+  <button class="btn-primary mt-2">Lưu dải trừ</button>
+</form>
+{% else %}
+<div class="card mb-4 overflow-x-auto"><h2 class="font-semibold mb-2">Tiêu chí</h2>
+  <table class="po-table"><thead><tr><th>Mã</th><th>Tên</th><th>Trọng số %</th><th>Bắt buộc</th></tr></thead><tbody>
+  {% for c in version.criteria.all %}<tr><td>{{ c.code }}</td><td>{{ c.title }}</td><td>{{ c.weight_percent }}</td><td>{{ c.required|yesno:"Có," }}</td></tr>{% endfor %}
+  </tbody></table></div>
+<div class="card mb-4 overflow-x-auto"><h2 class="font-semibold mb-2">Dải trừ</h2>
+  <table class="po-table"><thead><tr><th>Loại</th><th>Từ</th><th>Đến</th><th>% trừ</th></tr></thead><tbody>
+  {% for b in version.penalty_bands.all %}<tr><td>{{ b.get_kind_display }}</td><td>{{ b.min_value }}</td><td>{{ b.max_value|default:"+" }}</td><td>{{ b.deduction_percent }}</td></tr>{% endfor %}
+  </tbody></table></div>
+{% endif %}
+
+<div class="card mb-4">
+  <h2 class="font-semibold mb-2">Mô phỏng điểm (preview — không ảnh hưởng điểm thật)</h2>
+  {% if can_edit or can_publish %}
+  <form method="post" action="{% url 'kpi:config_preview' version.pk %}" class="flex flex-wrap gap-3 items-end" novalidate>{% csrf_token %}
+    {% for f in preview_form %}{% include "_field.html" with f=f %}{% endfor %}
+    <button class="btn-primary">Chạy mô phỏng</button>
+  </form>
+  {% if preview_results %}
+  <table class="po-table mt-3"><thead><tr>
+    <th>Chiến lược</th><th>Base</th><th>Trễ (ngày)</th><th>% trễ</th><th>Nhắc</th><th>% nhắc</th><th>Điểm cuối</th>
+  </tr></thead><tbody>
+    {% for r in preview_results %}<tr>
+      <td>{{ r.strategy }}</td><td>{{ r.base_score }}</td><td>{{ r.late_days }}</td>
+      <td>{{ r.late_deduction_percent }}</td><td>{{ r.reminder_count }}</td>
+      <td>{{ r.reminder_deduction_percent }}</td><td class="font-semibold">{{ r.final_score }}</td>
+    </tr>{% endfor %}
+  </tbody></table>
+  {% endif %}
+  {% else %}<p class="text-gray-500">Bạn cần quyền soạn/duyệt cấu hình để chạy mô phỏng.</p>{% endif %}
+</div>
+
+{% if is_draft and can_publish %}
+<form method="post" action="{% url 'kpi:config_publish' version.pk %}" class="card space-y-3" novalidate>{% csrf_token %}
+  <h2 class="font-semibold">Kích hoạt phiên bản</h2>
+  {% if publish_form.non_field_errors %}<div class="msg msg-error">{{ publish_form.non_field_errors|join:" " }}</div>{% endif %}
+  {% include "_field.html" with f=publish_form.reason %}
+  <button class="btn-primary" {% if validation_errors %}disabled{% endif %}>Kích hoạt (ACTIVE)</button>
+</form>
+{% endif %}
+{% endblock %}
