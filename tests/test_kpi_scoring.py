@@ -19,7 +19,7 @@ from apps.kpi.models import (
 from apps.kpi.scoring import compute_score
 from apps.records import services as rsc
 
-from .conftest import make_record
+from .conftest import make_record, today
 from .test_kpi_config import BANDS, CRIT
 from .test_kpi_permissions import _grant
 
@@ -398,3 +398,28 @@ def test_record_detail_own_score_only(ready, org, client_for):
     r = client_for(org.o1).get(f"/ho-so/{rec.pk}/")
     assert r.status_code == 200 and r.context["kpi_own_eval"].pk == ev.pk
     assert "kpi_rows" not in r.context or not r.context.get("kpi_rows")
+
+
+# --- WP7 reports ---
+
+
+def test_report_periodic_and_kpi_split(ready, org, client_for):
+    """WP7: plan vs period counts separated; only FINALIZED snapshots aggregated."""
+    from tests.test_periodic_plans import _make_plan
+
+    _make_plan(org, owner_department=org.d1, assignees=[org.o1], due_dates=[today()])
+    rec, ev = _finalized(org, ready)
+    _grant(org, org.leader, "KPI_VIEW_UNIT")
+    r = client_for(org.leader).get("/bao-cao/")
+    assert r.status_code == 200
+    per = r.context["periodic"]
+    assert per["plans"] == 1 and per["periods"] >= 1
+    kpi = r.context["kpi"]
+    assert kpi["kind"] == "scoped" and kpi["rows"][0]["n"] >= 1
+    # officer without grant: own-only stats, no unit rows
+    r2 = client_for(org.o1).get("/bao-cao/")
+    kpi2 = r2.context["kpi"]
+    assert kpi2["kind"] == "own" and kpi2["n"] == 1
+    # manager without score grant sees no scoped table data
+    r3 = client_for(org.mgr2).get("/bao-cao/")
+    assert r3.context["kpi"]["kind"] == "own" and r3.context["kpi"]["n"] == 0
