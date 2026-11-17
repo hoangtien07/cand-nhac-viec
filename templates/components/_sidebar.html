@@ -4,6 +4,7 @@
       {% url 'dashboard' as u %}{% include "components/_nav_item.html" with href=u icon="home" label="Trang chủ" active=nav_is_home %}
       {% url 'records:list' as u %}{% include "components/_nav_item.html" with href=u icon="file-text" label="Công tác tham mưu, xử lý văn bản" active=nav_is_records %}
       {% if can_create_record %}{% url 'records:create' as u %}{% include "components/_nav_item.html" with href=u icon="plus-square" label="Thêm nhiệm vụ" active=nav_is_create %}{% endif %}
+      {% url 'records:periodic_list' as u %}{% include "components/_nav_item.html" with href=u icon="refresh" label="Văn bản định kỳ" active=nav_is_periodic %}
       {% url 'reports:report' as u %}{% include "components/_nav_item.html" with href=u icon="bar-chart" label="Thống kê nhiệm vụ công việc" active=nav_is_reports %}
     {% endif %}
     {% if user.is_sys_admin %}

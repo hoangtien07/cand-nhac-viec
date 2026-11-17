@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}{{ plan.name }}{% endblock %}
+{% block content %}
+<nav class="text-sm mb-2"><a class="link" href="{% url 'records:periodic_list' %}">← Văn bản định kỳ</a></nav>
+<section class="card mb-4">
+  <h1 class="text-2xl font-bold">{{ plan.name }}</h1>
+  <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2 mt-3">
+    <div><dt class="dt">Loại</dt><dd>{{ plan.get_task_kind_display }}</dd></div>
+    <div><dt class="dt">Số hiệu chung</dt><dd>{{ plan.reference_no|default:"—" }}</dd></div>
+    <div><dt class="dt">Năm</dt><dd>{{ plan.year }}</dd></div>
+    <div><dt class="dt">Phòng chủ trì</dt><dd>{{ plan.owner_department.name }}</dd></div>
+    <div><dt class="dt">Trạng thái</dt><dd>{{ plan.get_status_display }}</dd></div>
+    <div><dt class="dt">Người tạo</dt><dd>{{ plan.created_by.full_name }}</dd></div>
+  </dl>
+</section>
+<section class="card p-0 overflow-x-auto" aria-labelledby="h-periods"><h2 id="h-periods" class="section-h">Các kỳ ({{ periods|length }})</h2>
+  <table class="w-full text-left">
+    <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Kỳ</th><th class="px-4 py-2">Số hiệu</th><th class="px-4 py-2">Hạn xử lý</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Người xử lý</th><th class="px-4 py-2">Kết quả</th></tr></thead>
+    <tbody class="divide-y">
+    {% for r in periods %}
+      <tr>
+        <td class="px-4 py-2 font-semibold"><a class="link" href="{% url 'records:detail' r.pk %}">Kỳ {{ r.period_index }}</a></td>
+        <td class="px-4 py-2">{{ r.reference_no|default:"—" }}</td>
+        <td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td>
+        <td class="px-4 py-2">{% include "records/_state_badge.html" with r=r %}</td>
+        <td class="px-4 py-2">{% for a in r.assignees.all %}{% if a.is_active %}{{ a.user.full_name }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</td>
+        <td class="px-4 py-2">{% for res in r.results.all %}{{ res.code }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Không có kỳ nào trong phạm vi bạn được xem.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

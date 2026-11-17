@@ -252,6 +252,30 @@ def can_submit_result(user, record):
     return RecordAssignee.objects.filter(record=record, user=user, is_active=True).exists()
 
 
+def periodic_plans_queryset(user):
+    """Plans a business user may see: own unit AND (leader, can create in owner dept,
+    or has at least one visible child period record)."""
+    from .models import PeriodicPlan
+
+    if not _business(user):
+        return PeriodicPlan.objects.none()
+    qs = PeriodicPlan.objects.filter(unit_id=user.unit_id)
+    if user.role == Role.LEADER:
+        return qs
+    creatable = creatable_departments(user).values("pk")
+    visible_children = visible_records_queryset(user).values("periodic_plan_id")
+    return qs.filter(Q(owner_department_id__in=creatable) | Q(pk__in=visible_children)).distinct()
+
+
+def can_view_plan(user, plan):
+    return periodic_plans_queryset(user).filter(pk=plan.pk).exists()
+
+
+def can_complete_other_task(user, record):
+    """D12 conservative: same gate as submit — active assignee only."""
+    return can_submit_result(user, record)
+
+
 def can_view_audit(user, record):
     return can_view_record(user, record)
 

@@ -1,4 +1,14 @@
-{% if can_submit %}
+{% if record.task_kind == "OTHER" %}
+{% if can_submit and record.status == "OPEN" %}
+<section class="card border-2 border-blue-800" id="nop-ket-qua" aria-labelledby="h-submit">
+  <h2 id="h-submit" class="text-lg font-semibold mb-1">Hoàn thành nhiệm vụ</h2>
+  <p class="text-sm text-slate-600 mb-3">Nhiệm vụ khác được ghi nhận hoàn thành bằng xác nhận của người thực hiện, không cần số hiệu.</p>
+  <form method="post" action="{% url 'records:complete_other' record.pk %}" class="space-y-3" novalidate onsubmit="this.querySelector('button[type=submit],button:not([type])').disabled=true">{% csrf_token %}
+    <button class="btn-primary w-full">Xác nhận hoàn thành</button>
+  </form>
+</section>
+{% endif %}
+{% elif can_submit %}
 <section class="card border-2 border-blue-800" id="nop-ket-qua" aria-labelledby="h-submit">
   <h2 id="h-submit" class="text-lg font-semibold mb-1">Nộp số hiệu kết quả</h2>
   <p class="text-sm text-slate-600 mb-3">{% if record.status == "OPEN" %}Nhập số hiệu văn bản/hồ sơ kết quả. Hồ sơ sẽ <strong>hoàn thành ngay</strong> khi nộp số hiệu đầu tiên.{% else %}Hồ sơ đã hoàn thành. Bạn vẫn có thể bổ sung số hiệu khác.{% endif %}</p>

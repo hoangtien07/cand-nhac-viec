@@ -20,13 +20,14 @@ from .forms import (
     AssignmentForm,
     CorrectionForm,
     DeadlineForm,
+    PeriodicPlanForm,
     RecordCreateForm,
     RecordEditForm,
     RecordFilterForm,
     RevokeResultForm,
     SubmitResultForm,
 )
-from .models import RecordAssignee, RecordStatus, ResultReference, WorkRecord
+from .models import PeriodicPlan, RecordAssignee, RecordStatus, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
 from .ui_state import SESSION_KEY, filter_created_in_work_year, get_active_work_year, parse_work_year
@@ -167,6 +168,9 @@ def record_create(request):
             record = services.create_record(
                 user,
                 reference_no=cd["reference_no"],
+                task_kind=cd["task_kind"],
+                title=cd["title"],
+                task_code=cd["task_code"],
                 owner_department=cd["owner_department"],
                 due_date=cd["due_date"],
                 assignees=list(cd["assignees"]),
@@ -181,7 +185,7 @@ def record_create(request):
                 .exclude(pk=record.pk)
                 .count()
             )
-            messages.success(request, f"Đã tạo hồ sơ {record.reference_no}.")
+            messages.success(request, f"Đã tạo hồ sơ {record.display_name}.")
             if dupes:
                 messages.warning(
                     request,
@@ -681,4 +685,92 @@ def revoke_result(request, pk, result_id):
         result_id,
         RevokeResultForm,
         lambda u, r, cd: services.revoke_result_reference(u, r.pk, result_id, cd["reason"]),
+    )
+
+
+@require_POST
+def complete_other_task(request, pk):
+    """D12: nhiệm vụ OTHER hoàn thành bằng xác nhận assignee (không qua số hiệu kết quả)."""
+    record = _get_visible(request.user, pk)
+    policies.require(policies.can_complete_other_task(request.user, record))
+    try:
+        services.complete_other_task(request.user, pk)
+    except WorkRecord.DoesNotExist:
+        raise Http404 from None
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, "Đã ghi nhận hoàn thành nhiệm vụ.")
+    return redirect("records:detail", pk=record.pk)
+
+
+@require_GET
+def periodic_plan_list(request):
+    user = request.user
+    _require_business(user)
+    plans = (
+        policies.periodic_plans_queryset(user)
+        .select_related("owner_department")
+        .prefetch_related("periods")
+    )
+    return render(request, "records/periodic_list.html", {"plans": plans})
+
+
+@require_http_methods(["GET", "POST"])
+def periodic_plan_create(request):
+    user = request.user
+    _require_business(user)
+    if not policies.creatable_departments(user).exists():
+        raise PermissionDenied("Bạn không có quyền tạo kế hoạch định kỳ.")
+    form = PeriodicPlanForm(user, request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        cd = form.cleaned_data
+        try:
+            plan = services.create_periodic_plan(
+                user,
+                name=cd["name"],
+                task_kind=cd["task_kind"],
+                reference_no=cd["reference_no"],
+                task_code=cd["task_code"],
+                owner_department=cd["owner_department"],
+                year=cd["year"],
+                due_dates=cd["due_dates"],
+                assignees=list(cd["assignees"]),
+                description_short=cd["description_short"],
+            )
+        except ValidationError as e:
+            form.add_error(None, e)
+        else:
+            messages.success(request, f"Đã tạo kế hoạch định kỳ «{plan.name}» ({plan.period_count} kỳ).")
+            return redirect("records:periodic_detail", pk=plan.pk)
+    return render(
+        request,
+        "records/periodic_create.html",
+        {"form": form},
+        status=400 if form.errors else 200,
+    )
+
+
+@require_GET
+def periodic_plan_detail(request, pk):
+    user = request.user
+    _require_business(user)
+    try:
+        plan = PeriodicPlan.objects.select_related("owner_department", "created_by").get(pk=pk)
+    except (PeriodicPlan.DoesNotExist, ValidationError):
+        raise Http404 from None
+    policies.require(policies.can_view_plan(user, plan))
+    periods = (
+        policies.visible_records_queryset(user)
+        .filter(periodic_plan=plan)
+        .select_related("owner_department")
+        .prefetch_related("assignees__user", "results")
+        .order_by("period_index")
+    )
+    now = db_now()
+    attach_state(periods, now)
+    return render(
+        request,
+        "records/periodic_detail.html",
+        {"plan": plan, "periods": periods, "now": now},
     )

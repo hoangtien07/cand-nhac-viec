@@ -12,11 +12,76 @@ class RecordStatus(models.TextChoices):
     DONE = "DONE", "Đã hoàn thành"
 
 
+class TaskKind(models.TextChoices):
+    DOCUMENT = "DOCUMENT", "Văn bản"
+    OTHER = "OTHER", "Nhiệm vụ khác"
+
+
+class PeriodicPlanStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Đang áp dụng"
+    CLOSED = "CLOSED", "Đã kết thúc"
+
+
+class PeriodicPlan(models.Model):
+    """Văn bản/nhiệm vụ định kỳ: 1 plan → 1..12 WorkRecord con (mỗi kỳ một hạn riêng).
+
+    ADR-005: children keep their own due_at/status/results; stats never count a plan
+    as 12 documents. Rows are PROTECTed so a plan cannot be hard-deleted while
+    children exist.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    unit = models.ForeignKey(
+        "organization.Unit", on_delete=models.PROTECT, related_name="periodic_plans"
+    )
+    name = models.CharField("Tên văn bản/nhiệm vụ định kỳ", max_length=200)
+    task_kind = models.CharField(max_length=10, choices=TaskKind.choices, default=TaskKind.DOCUMENT)
+    reference_no = models.CharField("Số hiệu chung (nếu có)", max_length=64, blank=True)
+    year = models.PositiveSmallIntegerField("Năm áp dụng")
+    owner_department = models.ForeignKey(
+        "organization.Department",
+        verbose_name="Phòng chủ trì",
+        on_delete=models.PROTECT,
+        related_name="periodic_plans",
+    )
+    status = models.CharField(
+        max_length=10, choices=PeriodicPlanStatus.choices, default=PeriodicPlanStatus.ACTIVE
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(db_default=Now(), editable=False)
+
+    class Meta:
+        ordering = ["-year", "name", "id"]
+        indexes = [models.Index(fields=["unit", "year"])]
+
+    def __str__(self):
+        return f"{self.name} ({self.year})"
+
+    @property
+    def period_count(self):
+        return self.periods.count()
+
+
 class WorkRecord(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     unit = models.ForeignKey("organization.Unit", on_delete=models.PROTECT, related_name="records")
-    reference_no = models.CharField("Số hiệu gốc", max_length=64)
-    reference_no_normalized = models.CharField(max_length=64, db_index=True)
+    task_kind = models.CharField(max_length=10, choices=TaskKind.choices, default=TaskKind.DOCUMENT)
+    title = models.CharField("Tên nhiệm vụ", max_length=200, blank=True)
+    task_code = models.CharField("Mã nhiệm vụ nội bộ", max_length=64, blank=True)
+    # STT3/WP2: nullable — OTHER tasks may not carry a document reference number.
+    reference_no = models.CharField("Số hiệu gốc", max_length=64, blank=True)
+    reference_no_normalized = models.CharField(max_length=64, db_index=True, blank=True)
+    periodic_plan = models.ForeignKey(
+        PeriodicPlan,
+        verbose_name="Kế hoạch định kỳ",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="periods",
+    )
+    period_index = models.PositiveSmallIntegerField(null=True, blank=True)
     owner_department = models.ForeignKey(
         "organization.Department",
         verbose_name="Phòng chủ trì",
@@ -74,10 +139,39 @@ class WorkRecord(models.Model):
                 ),
                 name="record_archive_consistent",
             ),
+            # period_index only exists on a plan child, always within 1..12.
+            models.CheckConstraint(
+                condition=(
+                    Q(periodic_plan__isnull=True, period_index__isnull=True)
+                    | Q(
+                        periodic_plan__isnull=False,
+                        period_index__gte=1,
+                        period_index__lte=12,
+                    )
+                ),
+                name="record_period_consistent",
+            ),
+            models.UniqueConstraint(
+                fields=["periodic_plan", "period_index"],
+                condition=Q(periodic_plan__isnull=False),
+                name="uniq_period_index_per_plan",
+            ),
+            models.UniqueConstraint(
+                fields=["unit", "task_code"],
+                condition=~Q(task_code=""),
+                name="uniq_task_code_per_unit",
+            ),
         ]
 
     def __str__(self):
-        return self.reference_no
+        return self.reference_no or self.title or str(self.pk)
+
+    @property
+    def display_name(self):
+        """Tên hiển thị: kỳ định kỳ → 'tên · kỳ i'; OTHER → title; DOCUMENT → số hiệu."""
+        if self.periodic_plan_id:
+            return f"{self.periodic_plan.name} · Kỳ {self.period_index}"
+        return self.title or self.reference_no
 
     @property
     def is_open(self):
@@ -94,6 +188,17 @@ class WorkRecord(models.Model):
             self.folder.unit_id != self.unit_id or self.folder.owner_department_id != self.owner_department_id
         ):
             raise ValidationError({"folder": "Nhóm hồ sơ phải cùng đơn vị và cùng phòng chủ trì với hồ sơ."})
+        if self.task_kind == TaskKind.OTHER and not self.title:
+            raise ValidationError({"title": "Nhiệm vụ khác bắt buộc có tên nhiệm vụ."})
+        if self.task_kind == TaskKind.DOCUMENT and not self.reference_no:
+            raise ValidationError({"reference_no": "Văn bản bắt buộc có số hiệu."})
+        if self.periodic_plan_id:
+            if self.periodic_plan.unit_id != self.unit_id or (
+                self.periodic_plan.owner_department_id != self.owner_department_id
+            ):
+                raise ValidationError(
+                    {"periodic_plan": "Kỳ định kỳ phải cùng đơn vị và phòng chủ trì với kế hoạch."}
+                )
 
 
 class RecordAssignee(models.Model):

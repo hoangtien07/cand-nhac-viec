@@ -17,7 +17,11 @@
   <div class="lg:col-span-2 space-y-6">
     <section class="card" aria-labelledby="h-info"><h2 id="h-info" class="text-lg font-semibold mb-3">Thông tin giao việc</h2>
       <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
-        <div><dt class="dt">Số hiệu gốc</dt><dd>{{ record.reference_no }}</dd></div>
+        <div><dt class="dt">Loại</dt><dd>{{ record.get_task_kind_display }}</dd></div>
+        {% if record.title %}<div><dt class="dt">Tên nhiệm vụ</dt><dd>{{ record.title }}</dd></div>{% endif %}
+        {% if record.task_code %}<div><dt class="dt">Mã nhiệm vụ</dt><dd>{{ record.task_code }}</dd></div>{% endif %}
+        {% if record.periodic_plan_id %}<div><dt class="dt">Kế hoạch định kỳ</dt><dd><a class="link" href="{% url 'records:periodic_detail' record.periodic_plan_id %}">{{ record.periodic_plan.name }}</a> · Kỳ {{ record.period_index }}</dd></div>{% endif %}
+        <div><dt class="dt">Số hiệu gốc</dt><dd>{{ record.reference_no|default:"—" }}</dd></div>
         <div><dt class="dt">Phòng/đội chủ trì</dt><dd>{{ record.owner_department.name }}</dd></div>
         <div><dt class="dt">Người giao</dt><dd>{{ record.assigner.full_name }}</dd></div>
         <div><dt class="dt">Hạn xử lý</dt><dd>{{ record.due_at|date:"d/m/Y H:i" }}</dd></div>

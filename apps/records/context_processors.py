@@ -8,6 +8,9 @@ from .ui_state import get_active_work_year, work_year_choices
 _NAV = {
     "dashboard": "home",
     "records:create": "create",
+    "records:periodic_list": "periodic",
+    "records:periodic_create": "periodic",
+    "records:periodic_detail": "periodic",
     "records": "records",
     "folders": "folders",
     "reports": "reports",

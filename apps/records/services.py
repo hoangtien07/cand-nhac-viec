@@ -13,11 +13,13 @@ from . import policies
 from .codes import InvalidCode, clean_display_code, normalize_code
 from .models import (
     CorrectionKind,
+    PeriodicPlan,
     RecordAssignee,
     RecordStatus,
     RecordWatcher,
     ResultCorrection,
     ResultReference,
+    TaskKind,
     WorkRecord,
 )
 from .timeutils import due_at_for_date
@@ -44,23 +46,56 @@ def _lock(record_id, actor):
     return record
 
 
-@transaction.atomic
-def create_record(
-    actor, *, reference_no, owner_department, due_date, assignees, watchers=(), description_short=""
-):
-    policies.require(policies.can_create_record(actor, owner_department))
+def _normalize_reference(task_kind, reference_no):
+    """DOCUMENT requires a valid code; OTHER may carry one optionally or none at all."""
+    if not (reference_no or "").strip():
+        if task_kind == TaskKind.DOCUMENT:
+            raise ValidationError("Văn bản bắt buộc có số hiệu.")
+        return "", ""
     try:
         display = clean_display_code(reference_no)
     except InvalidCode as e:
         raise ValidationError(str(e)) from e
+    return display, normalize_code(display)
+
+
+@transaction.atomic
+def create_record(
+    actor,
+    *,
+    owner_department,
+    due_date,
+    assignees,
+    reference_no=None,
+    task_kind=TaskKind.DOCUMENT,
+    title="",
+    task_code="",
+    watchers=(),
+    description_short="",
+    periodic_plan=None,
+    period_index=None,
+):
+    policies.require(policies.can_create_record(actor, owner_department))
+    if task_kind not in TaskKind.values:
+        raise ValidationError("Loại nhiệm vụ không hợp lệ.")
+    display, normalized = _normalize_reference(task_kind, reference_no)
+    title = (title or "").strip()[:200]
+    task_code = (task_code or "").strip()[:64]
+    if task_kind == TaskKind.OTHER and not title:
+        raise ValidationError("Nhiệm vụ khác bắt buộc có tên nhiệm vụ.")
     assignees = _validate_users(policies.assignable_users(actor, owner_department), assignees, "Người xử lý")
     if not assignees:
         raise ValidationError("Cần chọn ít nhất một người xử lý.")
     watchers = _validate_users(policies.watchable_users(actor), watchers, "Người theo dõi")
     record = WorkRecord.objects.create(
         unit_id=actor.unit_id,
+        task_kind=task_kind,
+        title=title,
+        task_code=task_code,
         reference_no=display,
-        reference_no_normalized=normalize_code(display),
+        reference_no_normalized=normalized,
+        periodic_plan=periodic_plan,
+        period_index=period_index,
         owner_department=owner_department,
         assigner=actor,
         created_by=actor,
@@ -83,6 +118,128 @@ def create_record(
         watchers=_ids(watchers),
     )
     record.refresh_from_db()
+    return record
+
+
+@transaction.atomic
+def create_periodic_plan(
+    actor,
+    *,
+    name,
+    owner_department,
+    year,
+    due_dates,
+    assignees,
+    task_kind=TaskKind.DOCUMENT,
+    reference_no=None,
+    task_code="",
+    description_short="",
+):
+    """Tạo 1 PeriodicPlan + 1..12 WorkRecord con trong cùng một transaction.
+
+    unique(periodic_plan, period_index) chặn trùng index ở DB; validate count 1..12,
+    mọi ngày thuộc `year`, không trùng ngày. Mỗi kỳ có deadline/status/results riêng.
+    """
+    policies.require(policies.can_create_record(actor, owner_department))
+    name = (name or "").strip()[:200]
+    if not name:
+        raise ValidationError("Kế hoạch định kỳ bắt buộc có tên.")
+    if task_kind not in TaskKind.values:
+        raise ValidationError("Loại nhiệm vụ không hợp lệ.")
+    display, normalized = _normalize_reference(task_kind, reference_no)
+    dates = sorted(set(due_dates))
+    if len(dates) != len(due_dates):
+        raise ValidationError("Các ngày hạn của các kỳ không được trùng nhau.")
+    if not 1 <= len(dates) <= 12:
+        raise ValidationError("Văn bản định kỳ phải có từ 1 đến 12 kỳ trong năm.")
+    bad = [d for d in dates if d.year != year]
+    if bad:
+        raise ValidationError(f"Mọi kỳ phải có hạn thuộc năm {year}.")
+    assignees = _validate_users(policies.assignable_users(actor, owner_department), assignees, "Người xử lý")
+    if not assignees:
+        raise ValidationError("Cần chọn ít nhất một người xử lý.")
+    task_code = (task_code or "").strip()[:64]
+    plan = PeriodicPlan.objects.create(
+        unit_id=actor.unit_id,
+        name=name,
+        task_kind=task_kind,
+        reference_no=display,
+        year=year,
+        owner_department=owner_department,
+        created_by=actor,
+    )
+    records = []
+    for idx, day in enumerate(dates, start=1):
+        rec = WorkRecord.objects.create(
+            unit_id=actor.unit_id,
+            task_kind=task_kind,
+            title=name,
+            task_code=task_code,
+            reference_no=display,
+            reference_no_normalized=normalized,
+            periodic_plan=plan,
+            period_index=idx,
+            owner_department=owner_department,
+            assigner=actor,
+            created_by=actor,
+            due_at=due_at_for_date(day),
+            description_short=(description_short or "").strip()[:200],
+        )
+        RecordAssignee.objects.bulk_create(
+            RecordAssignee(record=rec, user=u, added_by=actor) for u in assignees
+        )
+        audit_append(
+            AuditAction.RECORD_CREATED,
+            unit=rec.unit_id,
+            actor=actor,
+            record=rec,
+            reference_no=display,
+            owner_department=str(owner_department.pk),
+            due_at=rec.due_at.isoformat(),
+            assignees=_ids(assignees),
+            periodic_plan=str(plan.pk),
+            period_index=idx,
+        )
+        records.append(rec)
+    audit_append(
+        AuditAction.PERIODIC_PLAN_CREATED,
+        unit=plan.unit_id,
+        actor=actor,
+        record=records[0],
+        periodic_plan=str(plan.pk),
+        name=name,
+        year=year,
+        period_count=len(records),
+        task_kind=task_kind,
+    )
+    return plan
+
+
+@transaction.atomic
+def complete_other_task(actor, record_id):
+    """D12 conservative default: nhiệm vụ OTHER hoàn thành bằng xác nhận của assignee,
+    không qua số hiệu kết quả. Một transaction + lock + audit giống submit.
+    """
+    record = _lock(record_id, actor)
+    if record.task_kind != TaskKind.OTHER:
+        raise ValidationError("Chỉ nhiệm vụ khác mới hoàn thành bằng xác nhận.")
+    policies.require(policies.can_submit_result(actor, record))
+    if record.status == RecordStatus.DONE:
+        raise ValidationError("Nhiệm vụ đã hoàn thành trước đó.")
+    WorkRecord.objects.filter(pk=record.pk, status=RecordStatus.OPEN).update(
+        status=RecordStatus.DONE, completed_at=Now(), completed_by=actor, updated_at=Now()
+    )
+    record.refresh_from_db()
+    audit_append(
+        AuditAction.OTHER_TASK_COMPLETED,
+        unit=record.unit_id,
+        actor=actor,
+        record=record,
+        title=record.title,
+    )
+    from apps.notifications.services import resolve_record_notifications
+
+    resolve_record_notifications(record, actor=actor, reason="other_completed")
     return record
 
 
@@ -205,6 +362,10 @@ def submit_result_reference(actor, record_id, code):
             raise WorkRecord.DoesNotExist
         if not policies.can_submit_result(actor, record):
             raise PermissionDenied("Chỉ người được giao đang hoạt động mới được nộp số hiệu kết quả.")
+        if record.task_kind == TaskKind.OTHER:
+            raise ValidationError(
+                "Nhiệm vụ khác hoàn thành xác nhận của người thực hiện, không qua số hiệu (D12)."
+            )
         existing = ResultReference.objects.filter(record=record, normalized_code=normalized).first()
         if existing:
             return SubmitOutcome(existing, created=False, completed_record=False)

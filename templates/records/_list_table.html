@@ -3,7 +3,7 @@
   <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Phòng chủ trì</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th><th class="px-4 py-2">Thao tác</th></tr></thead>
   <tbody class="divide-y">
   {% for r in page.object_list %}
-  <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' r.pk %}">{{ r.reference_no }}</a></td>
+  <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' r.pk %}">{{ r.display_name }}</a>{% if r.reference_no and r.title %}<div class="text-sm text-slate-600">{{ r.reference_no }}</div>{% endif %}</td>
     <td class="px-4 py-2">{% include "components/_status_badge.html" %}</td><td class="px-4 py-2">{{ r.owner_department.name }}</td>
     <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td>
     <td class="px-4 py-2">

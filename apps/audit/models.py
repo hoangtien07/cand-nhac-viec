@@ -30,6 +30,18 @@ class AuditAction(models.TextChoices):
     RECORD_RESTORED = "record.restored", "Khôi phục hồ sơ"
     RESULT_CORRECTED = "result.corrected", "Đính chính số hiệu kết quả"
     RESULT_REVOKED = "result.revoked", "Hủy hiệu lực số hiệu kết quả"
+    PERIODIC_PLAN_CREATED = "periodic_plan.created", "Tạo kế hoạch định kỳ"
+    OTHER_TASK_COMPLETED = "record.other_completed", "Hoàn thành nhiệm vụ khác"
+    KPI_CONFIG_CREATED = "kpi.config_created", "Tạo cấu hình KPI"
+    KPI_CONFIG_UPDATED = "kpi.config_updated", "Sửa cấu hình KPI"
+    KPI_CONFIG_PUBLISHED = "kpi.config_published", "Kích hoạt cấu hình KPI"
+    KPI_PERMISSION_GRANTED = "kpi.permission_granted", "Cấp quyền KPI"
+    KPI_PERMISSION_REVOKED = "kpi.permission_revoked", "Thu hồi quyền KPI"
+    KPI_REMINDER_ISSUED = "kpi.reminder_issued", "Ghi nhận nhắc nhở KPI"
+    KPI_REMINDER_REVOKED = "kpi.reminder_revoked", "Hủy nhắc nhở KPI"
+    KPI_EVALUATION_UPDATED = "kpi.evaluation_updated", "Cập nhật đánh giá KPI"
+    KPI_EVALUATION_FINALIZED = "kpi.evaluation_finalized", "Chốt điểm KPI"
+    KPI_SCORE_CORRECTED = "kpi.score_corrected", "Điều chỉnh điểm KPI"
 
 
 class AppendOnlyQuerySet(models.QuerySet):

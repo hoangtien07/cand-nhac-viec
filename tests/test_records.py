@@ -16,6 +16,7 @@ pytestmark = pytest.mark.django_db
 
 def _form(org, **kw):
     data = {
+        "task_kind": "DOCUMENT",
         "reference_no": "CV-10/2026",
         "owner_department": org.d1.pk,
         "due_date": (today() + datetime.timedelta(days=2)).isoformat(),
