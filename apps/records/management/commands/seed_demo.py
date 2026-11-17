@@ -34,6 +34,9 @@ ACCOUNTS = [
     ("admin.a", "Quản trị A (giả lập)", "A", None, Role.SYS_ADMIN),
     ("lanhdao.a1", "Lãnh đạo A1 (giả lập)", "A", None, Role.LEADER),
     ("lanhdao.a2", "Lãnh đạo A2 (giả lập)", "A", None, Role.LEADER),
+    # Tách trách nhiệm demo (plan D09): một leader soạn cấu hình + chấm, một leader duyệt + chốt.
+    ("leader.config", "Lãnh đạo cấu hình KPI (giả lập)", "A", None, Role.LEADER),
+    ("leader.approve", "Lãnh đạo phê duyệt KPI (giả lập)", "A", None, Role.LEADER),
     *[(f"canbo.to{i}", f"Cán bộ Tổ {i} (giả lập)", "A", i - 1, Role.OFFICER) for i in range(1, 6)],
     ("admin.b", "Quản trị B (giả lập)", "B", None, Role.SYS_ADMIN),
     ("lanhdao.b", "Lãnh đạo B (giả lập)", "B", 0, Role.LEADER),
@@ -78,6 +81,7 @@ class Command(BaseCommand):
                 users[username] = u
             if not WorkRecord.objects.exists():
                 self._records(users, depts)
+            self._kpi_grants(users, units)
         if creds and not shared:
             path = Path(opts["credentials_file"])
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,6 +93,38 @@ class Command(BaseCommand):
                 f"Seed xong: {len(creds)} tài khoản mới, {WorkRecord.objects.count()} hồ sơ."
             )
         )
+
+    def _kpi_grants(self, u, units):
+        """Demo capability grants (PLAN §STT?): leader.config = CONFIG_EDIT+EVALUATE,
+        leader.approve = PUBLISH+SCORE_FINALIZE+VIEW_UNIT. SYS_ADMIN không có grant nghiệp vụ."""
+        from apps.kpi.capabilities import KpiCapability
+        from apps.kpi.models import GrantScope, KpiCapabilityGrant
+
+        granter = u["admin.a"]
+        unit = units["A"]
+        for username, caps in (
+            ("leader.config", [KpiCapability.CONFIG_EDIT, KpiCapability.EVALUATE]),
+            (
+                "leader.approve",
+                [
+                    KpiCapability.CONFIG_PUBLISH,
+                    KpiCapability.SCORE_FINALIZE,
+                    KpiCapability.VIEW_UNIT,
+                ],
+            ),
+        ):
+            for cap in caps:
+                KpiCapabilityGrant.objects.get_or_create(
+                    unit=unit,
+                    user=u[username],
+                    capability=cap,
+                    scope=GrantScope.UNIT,
+                    defaults={
+                        "granted_by": granter,
+                        "approved_by": granter,
+                        "reason": "Seed demo: tách leader.config / leader.approve",
+                    },
+                )
 
     def _records(self, u, depts):
         today = local_date(db_now())
