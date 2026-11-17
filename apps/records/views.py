@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -135,14 +137,27 @@ def record_list(request):
             qs = due_soon(qs, now)
     page = Paginator(qs.order_by("status", "due_at"), 25).get_page(request.GET.get("page"))
     page.object_list = attach_state(page.object_list, now)
+    from apps.kpi import policies as kpol
+    from apps.kpi import queries as kq
+
+    kpi_cols = kpol.kpi_enabled() and user.is_business_user
+    eval_statuses = kq.eval_status_map([r.pk for r in page.object_list]) if kpi_cols else {}
+    own_scores = kq.own_score_map(user, [r.pk for r in page.object_list]) if kpi_cols else {}
     for r in page.object_list:
         r.row_can_edit = policies.can_edit_record_metadata(user, r)
         r.row_can_submit = policies.can_submit_result(user, r)
+        if kpi_cols:
+            r.kpi_eval_label = {
+                "FINALIZED": "Đã chốt", "DRAFT": "Đang đánh giá"
+            }.get(eval_statuses.get(r.pk), "Chưa đánh giá")
+            own = own_scores.get(r.pk)
+            r.kpi_own_eval_id, r.kpi_own_score = own if own else (None, None)
         r.row_can_archive = policies.can_archive_record(user, r)
     state = {k: v for k, v in request.GET.items() if k != "page"}
     ctx = {
         "form": form,
         "page": page,
+        "kpi_cols": kpi_cols,
         "can_create": policies.creatable_departments(user).exists(),
         "prev_href": dashboard_queries.query_string(state, page=page.previous_page_number())
         if page.has_previous()
@@ -353,6 +368,30 @@ def _detail_context(request, record, **extra):
         )
     if perms["can_deadline"]:
         ctx["deadline_form"] = DeadlineForm(initial={"due_date": local_date(record.due_at)})
+    from apps.kpi import policies as kpol
+    from apps.kpi.models import KpiEvaluation, KpiReminderEvent
+
+    if kpol.kpi_enabled() and user.is_business_user:
+        evals = {e.subject_user_id: e for e in KpiEvaluation.objects.filter(record=record)}
+        can_eval = kpol.can_evaluate(user, record.owner_department_id)
+        can_remind = kpol.can_issue_kpi_reminder(user, record.owner_department_id)
+        for a in active_assignees:
+            a.kpi_eval = evals.get(a.user_id)
+            a.kpi_reminder_count = KpiReminderEvent.objects.filter(
+                record=record, subject_user_id=a.user_id, revocation__isnull=True
+            ).count()
+            a.kpi_idem_key = uuid.uuid4().hex  # per-assignee: unit-wide unique constraint
+        ctx.update(
+            kpi_rows=active_assignees if (can_eval or can_remind) else [],
+            kpi_can_eval=can_eval,
+            kpi_can_remind=can_remind,
+        )
+        own_ev = evals.get(user.pk)
+        if own_ev and own_ev.status == "FINALIZED":
+            from apps.kpi import queries as kq
+
+            snap = kq.attach_effective_snapshots([own_ev])[own_ev.pk]
+            ctx.update(kpi_own_eval=own_ev, kpi_own_score=snap.final_score if snap else None)
     ctx.update(extra)
     return ctx
 

@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}KPI của tôi{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">KPI của tôi</h1>
+<p class="text-sm text-slate-600 mb-4">Chỉ hiển thị điểm đã chốt (FINALIZED) của chính bạn.</p>
+<div class="card p-0 overflow-x-auto"><table class="w-full text-left">
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Nhiệm vụ</th><th class="px-4 py-2">Phiên bản chính sách</th><th class="px-4 py-2">Điểm cơ sở</th><th class="px-4 py-2">Khấu trừ trễ</th><th class="px-4 py-2">Khấu trừ nhắc nhở</th><th class="px-4 py-2">Điểm KPI</th><th class="px-4 py-2">Chốt lúc</th></tr></thead>
+  <tbody class="divide-y">
+  {% for ev, snap in rows %}
+  <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' ev.record_id %}">{{ ev.record.display_name }}</a></td>
+    <td class="px-4 py-2">v{{ ev.policy_version.version }} — {{ ev.policy_version.family.name }}</td>
+    <td class="px-4 py-2">{{ snap.base_score }}</td><td class="px-4 py-2">{{ snap.late_deduction_percent }}%</td><td class="px-4 py-2">{{ snap.reminder_deduction_percent }}%</td>
+    <td class="px-4 py-2 font-bold">{{ snap.final_score }}</td><td class="px-4 py-2">{{ snap.created_at|date:"d/m/Y H:i" }}</td></tr>
+  {% empty %}<tr><td colspan="7" class="px-4 py-6 text-center text-slate-500">Chưa có điểm đã chốt.</td></tr>{% endfor %}
+  </tbody></table></div>
+{% endblock %}

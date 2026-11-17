@@ -365,3 +365,103 @@ def evaluation_correct(request, evaluation_id):
             messages.error(request, m)
     return redirect("kpi:evaluation_detail", evaluation_id)
 
+
+
+# --- WP6: role screens (PLAN §7.2) ---
+
+
+def _score_view_caps_ok(user):
+    from . import queries
+
+    return queries.can_view_scores(user)
+
+
+@kpi_view
+def my_scores(request):
+    """'KPI của tôi' — officer only sees their own FINALIZED scores."""
+    from . import queries
+
+    policies.require(request.user.is_business_user)
+    return render(
+        request,
+        "kpi/my_scores.html",
+        {"rows": queries.my_finalized_evaluations(request.user)},
+    )
+
+
+@kpi_view
+def score_board(request):
+    """'Bảng điểm cán bộ' — unit or dept-scoped listing of FINALIZED snapshots."""
+    from . import queries
+
+    user = request.user
+    policies.require(user.is_business_user and _score_view_caps_ok(user))
+    qs = queries.scoped_evaluations(user).filter(status="FINALIZED").order_by("-finalized_at")
+    dept = request.GET.get("dept")
+    subject = request.GET.get("subject")
+    month = request.GET.get("month", "")
+    if dept:
+        qs = qs.filter(record__owner_department_id=dept)
+    if subject:
+        qs = qs.filter(subject_user_id=subject)
+    if month:
+        try:
+            y, m = (int(x) for x in month.split("-"))
+            qs = qs.filter(finalized_at__year=y, finalized_at__month=m)
+        except (ValueError, TypeError):
+            month = ""
+    evaluations = list(qs)
+    snaps = queries.attach_effective_snapshots(evaluations)
+    rows = [(ev, snaps[ev.pk]) for ev in evaluations if snaps[ev.pk]]
+    from apps.organization.models import Department
+
+    scope_depts = {
+        ev.record.owner_department_id for ev in evaluations
+    }
+    subjects = {
+        ev.subject_user_id: ev.subject_user for ev in evaluations
+    }
+    return render(
+        request,
+        "kpi/score_board.html",
+        {
+            "rows": rows,
+            "departments": Department.objects.filter(pk__in=scope_depts),
+            "subjects": subjects.values(),
+            "sel_dept": dept, "sel_subject": subject, "sel_month": month,
+        },
+    )
+
+
+@kpi_view
+def evaluation_list(request):
+    """'Đánh giá & chốt điểm' — evaluations in the viewer's working scope."""
+    from . import queries
+
+    user = request.user
+    policies.require(
+        user.is_business_user
+        and (
+            policies.has_capability(user, KpiCapability.EVALUATE)
+            or policies.has_capability(user, KpiCapability.SCORE_FINALIZE)
+        )
+    )
+    qs = queries.scoped_evaluations(user).order_by("-created_at")[:200]
+    return render(request, "kpi/evaluation_list.html", {"evaluations": qs})
+
+
+@kpi_view
+def reminder_list(request):
+    """'Ghi nhận nhắc nhở' — scoped reminder events + revoke action."""
+    from . import queries
+
+    user = request.user
+    policies.require(
+        user.is_business_user
+        and policies.has_capability(user, KpiCapability.REMINDER_ISSUE)
+    )
+    return render(
+        request,
+        "kpi/reminder_list.html",
+        {"events": queries.scoped_reminders(user).order_by("-issued_at")[:200]},
+    )

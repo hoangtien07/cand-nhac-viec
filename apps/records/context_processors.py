@@ -54,9 +54,20 @@ def ui_shell(request):
     from apps.kpi.policies import can_manage_grants, can_view_kpi_config, kpi_enabled
 
     if kpi_enabled() and user.unit_id:
+        from apps.kpi.policies import (
+            can_evaluate,
+            can_finalize,
+            can_issue_kpi_reminder,
+            can_view_scoped_scores,
+        )
+
         kpi_ctx = {
+            "kpi_flag_on": True,
             "kpi_can_config": can_view_kpi_config(user),
             "kpi_can_grant": can_manage_grants(user),
+            "kpi_can_eval": can_evaluate(user) or can_finalize(user),
+            "kpi_can_board": can_view_scoped_scores(user),
+            "kpi_can_remind": can_issue_kpi_reminder(user),
         }
     return {
         "current_user_initials": initials(user.full_name),

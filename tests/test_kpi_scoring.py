@@ -337,3 +337,64 @@ def test_concurrent_publish_single_active(org_tx):
         KpiPolicyVersion.objects.filter(family__unit=org.ua).values_list("status", flat=True)
     )
     assert statuses == ["ACTIVE", "SUPERSEDED"] and not errors
+
+
+# --- WP6 UI ---
+
+
+def _finalized(org, ready, subject=None):
+    subject = subject or org.o1
+    rec = make_record(org.leader, org.d1, [subject], ref="UI-1", days=2)
+    rsc.submit_result_reference(subject, rec.pk, "KQ-UI")
+    ev, _ = esvc.get_or_create_evaluation(
+        org.leader, record_id=rec.pk, subject_user_id=subject.pk
+    )
+    marks = {str(c.pk): 100 for c in ev.policy_version.criteria.all()}
+    esvc.save_marks(org.leader, ev.pk, marks)
+    esvc.finalize_evaluation(org.leader, ev.pk)
+    return rec, ev
+
+
+def test_ui_pages_access(ready, org, client_for):
+    c_leader, c_o2 = client_for(org.leader), client_for(org.o2)
+    for url in ("/kpi/ca-nhan/", "/kpi/bang-diem/", "/kpi/danh-gia/", "/kpi/nhac-nho/"):
+        assert c_leader.get(url).status_code == 200, url
+    assert c_o2.get("/kpi/ca-nhan/").status_code == 200
+    for url in ("/kpi/bang-diem/", "/kpi/danh-gia/", "/kpi/nhac-nho/"):
+        assert c_o2.get(url).status_code == 403, url
+
+
+def test_my_scores_only_own(ready, org, client_for):
+    _finalized(org, ready, org.o1)
+    _finalized(org, ready, org.o1b)
+    r = client_for(org.o1).get("/kpi/ca-nhan/")
+    assert r.status_code == 200
+    assert len(r.context["rows"]) == 1 and r.context["rows"][0][0].subject_user == org.o1
+
+
+def test_score_board_scope(ready, org, client_for):
+    rec, ev = _finalized(org, ready)
+    _grant(org, org.mgr1, "KPI_VIEW_UNIT", scope="DEPARTMENT", dept=org.d1)
+    r = client_for(org.mgr1).get("/kpi/bang-diem/")
+    assert r.status_code == 200 and any(e.pk == ev.pk for e, _s in r.context["rows"])
+    r2 = client_for(org.mgr2).get("/kpi/bang-diem/")
+    assert r2.status_code == 403
+
+
+def test_record_list_kpi_cols(ready, org, client_for):
+    rec, ev = _finalized(org, ready)
+    r = client_for(org.o1).get("/ho-so/")
+    assert r.status_code == 200
+    rows = {x.pk: x for x in r.context["page"].object_list}
+    assert rows[rec.pk].kpi_eval_label == "Đã chốt"
+    assert rows[rec.pk].kpi_own_score is not None
+    # cross-subject score not leaked to another officer
+    r2 = client_for(org.o2).get("/ho-so/")
+    assert r2.status_code == 200
+
+
+def test_record_detail_own_score_only(ready, org, client_for):
+    rec, ev = _finalized(org, ready)
+    r = client_for(org.o1).get(f"/ho-so/{rec.pk}/")
+    assert r.status_code == 200 and r.context["kpi_own_eval"].pk == ev.pk
+    assert "kpi_rows" not in r.context or not r.context.get("kpi_rows")

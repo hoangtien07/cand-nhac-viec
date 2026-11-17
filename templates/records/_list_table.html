@@ -1,11 +1,12 @@
 <div class="card p-0 overflow-x-auto">
 <table class="w-full text-left">
-  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Phòng chủ trì</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th><th class="px-4 py-2">Thao tác</th></tr></thead>
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Số hiệu gốc</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Phòng chủ trì</th><th class="px-4 py-2">Người giao</th><th class="px-4 py-2">Hạn xử lý</th>{% if kpi_cols %}<th class="px-4 py-2">Đánh giá</th><th class="px-4 py-2">Điểm KPI</th>{% endif %}<th class="px-4 py-2">Thao tác</th></tr></thead>
   <tbody class="divide-y">
   {% for r in page.object_list %}
   <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' r.pk %}">{{ r.display_name }}</a>{% if r.reference_no and r.title %}<div class="text-sm text-slate-600">{{ r.reference_no }}</div>{% endif %}</td>
     <td class="px-4 py-2">{% include "components/_status_badge.html" %}</td><td class="px-4 py-2">{{ r.owner_department.name }}</td>
     <td class="px-4 py-2">{{ r.assigner.full_name }}</td><td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td>
+    {% if kpi_cols %}<td class="px-4 py-2">{{ r.kpi_eval_label }}</td><td class="px-4 py-2">{% if r.kpi_own_eval_id %}<a class="link font-semibold" href="{% url 'kpi:evaluation_detail' r.kpi_own_eval_id %}">{{ r.kpi_own_score }}</a>{% else %}—{% endif %}</td>{% endif %}
     <td class="px-4 py-2">
       <details class="po-menu relative inline-block"><summary class="btn-secondary px-2 py-1 cursor-pointer list-none" aria-label="Thao tác cho {{ r.reference_no }}">⋯</summary>
         <div class="po-menu-panel card absolute right-0 mt-1 z-20 w-48 p-1 shadow-lg">

@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Bảng điểm cán bộ{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Bảng điểm cán bộ</h1>
+<form method="get" class="card mb-4 flex flex-wrap gap-3 items-end">
+  <div><label class="lbl" for="f-dept">Phòng/tổ</label>
+    <select id="f-dept" name="dept" class="inp"><option value="">— Tất cả trong phạm vi —</option>
+      {% for d in departments %}<option value="{{ d.pk }}" {% if sel_dept == d.pk|stringformat:"s" %}selected{% endif %}>{{ d.name }}</option>{% endfor %}</select></div>
+  <div><label class="lbl" for="f-sub">Cán bộ</label>
+    <select id="f-sub" name="subject" class="inp"><option value="">— Tất cả —</option>
+      {% for s in subjects %}<option value="{{ s.pk }}" {% if sel_subject == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.full_name }}</option>{% endfor %}</select></div>
+  <div><label class="lbl" for="f-month">Tháng chốt</label>
+    <input id="f-month" type="month" name="month" value="{{ sel_month }}" class="inp"></div>
+  <button class="btn-secondary">Lọc</button>
+</form>
+<div class="card p-0 overflow-x-auto"><table class="w-full text-left">
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Cán bộ</th><th class="px-4 py-2">Phòng/tổ</th><th class="px-4 py-2">Nhiệm vụ</th><th class="px-4 py-2">Chính sách</th><th class="px-4 py-2">Cơ sở</th><th class="px-4 py-2">L%</th><th class="px-4 py-2">R%</th><th class="px-4 py-2">Điểm</th><th class="px-4 py-2">Chốt lúc</th></tr></thead>
+  <tbody class="divide-y">
+  {% for ev, snap in rows %}
+  <tr class="hover:bg-slate-50"><td class="px-4 py-2 font-semibold">{{ ev.subject_user.full_name }}</td>
+    <td class="px-4 py-2">{{ ev.subject_user.department.name|default:"—" }}</td>
+    <td class="px-4 py-2"><a class="link" href="{% url 'records:detail' ev.record_id %}">{{ ev.record.display_name }}</a></td>
+    <td class="px-4 py-2">v{{ ev.policy_version.version }}</td>
+    <td class="px-4 py-2">{{ snap.base_score }}</td><td class="px-4 py-2">{{ snap.late_deduction_percent }}</td><td class="px-4 py-2">{{ snap.reminder_deduction_percent }}</td>
+    <td class="px-4 py-2 font-bold">{{ snap.final_score }}</td><td class="px-4 py-2">{{ snap.created_at|date:"d/m/Y H:i" }}</td></tr>
+  {% empty %}<tr><td colspan="9" class="px-4 py-6 text-center text-slate-500">Chưa có điểm đã chốt trong phạm vi.</td></tr>{% endfor %}
+  </tbody></table></div>
+{% endblock %}

@@ -23,3 +23,10 @@ urlpatterns += [
     path("danh-gia/<uuid:evaluation_id>/chot/", views.evaluation_finalize, name="evaluation_finalize"),
     path("danh-gia/<uuid:evaluation_id>/dieu-chinh/", views.evaluation_correct, name="evaluation_correct"),
 ]
+
+urlpatterns += [
+    path("ca-nhan/", views.my_scores, name="my_scores"),
+    path("bang-diem/", views.score_board, name="score_board"),
+    path("danh-gia/", views.evaluation_list, name="evaluation_list"),
+    path("nhac-nho/", views.reminder_list, name="reminder_list"),
+]

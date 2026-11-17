@@ -6,6 +6,10 @@
       {% if can_create_record %}{% url 'records:create' as u %}{% include "components/_nav_item.html" with href=u icon="plus-square" label="Thêm nhiệm vụ" active=nav_is_create %}{% endif %}
       {% url 'records:periodic_list' as u %}{% include "components/_nav_item.html" with href=u icon="refresh" label="Văn bản định kỳ" active=nav_is_periodic %}
       {% url 'reports:report' as u %}{% include "components/_nav_item.html" with href=u icon="bar-chart" label="Thống kê nhiệm vụ công việc" active=nav_is_reports %}
+      {% if kpi_flag_on %}{% url 'kpi:my_scores' as u %}{% include "components/_nav_item.html" with href=u icon="check-circle" label="KPI của tôi" active=nav_is_kpi %}{% endif %}
+      {% if kpi_can_board %}{% url 'kpi:score_board' as u %}{% include "components/_nav_item.html" with href=u icon="grid" label="Bảng điểm cán bộ" active=nav_is_kpi %}{% endif %}
+      {% if kpi_can_eval %}{% url 'kpi:evaluation_list' as u %}{% include "components/_nav_item.html" with href=u icon="clipboard" label="Đánh giá & chốt điểm" active=nav_is_kpi %}{% endif %}
+      {% if kpi_can_remind %}{% url 'kpi:reminder_list' as u %}{% include "components/_nav_item.html" with href=u icon="bell" label="Ghi nhận nhắc nhở" active=nav_is_kpi %}{% endif %}
       {% if kpi_can_config %}{% url 'kpi:config_list' as u %}{% include "components/_nav_item.html" with href=u icon="shield-check" label="Cấu hình KPI" active=nav_is_kpi %}{% endif %}
     {% endif %}
     {% if user.is_sys_admin %}
