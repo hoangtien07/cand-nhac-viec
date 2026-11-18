@@ -46,6 +46,30 @@
   <tbody class="divide-y">{% for d in by_dept %}<tr><td class="px-4 py-2">{{ d.owner_department__name }}</td><td class="px-4 py-2">{{ d.open }}</td><td class="px-4 py-2">{{ d.overdue }}</td><td class="px-4 py-2">{{ d.due_soon }}</td><td class="px-4 py-2">{{ d.done }}</td><td class="px-4 py-2">{{ d.total }}</td></tr>
   {% empty %}<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Chưa có số liệu trong phạm vi của bạn.</td></tr>{% endfor %}</tbody>
 </table></div>
+
+<section class="card mt-6" aria-labelledby="h-periodic"><h2 id="h-periodic" class="text-lg font-semibold mb-3">Văn bản định kỳ</h2>
+  <p class="text-sm text-slate-600 mb-3">Số kế hoạch định kỳ và số kỳ hạn được tách riêng — một văn bản 12 hạn vẫn là 1 văn bản.</p>
+  <div class="grid grid-cols-3 gap-4">
+    <div><div class="dt">Kế hoạch định kỳ</div><div class="text-2xl font-bold">{{ periodic.plans }}</div></div>
+    <div><div class="dt">Tổng kỳ hạn trong phạm vi</div><div class="text-2xl font-bold">{{ periodic.periods }}</div></div>
+    <div><div class="dt">Kỳ đã hoàn thành</div><div class="text-2xl font-bold text-green-700">{{ periodic.done_periods }}</div></div>
+  </div>
+</section>
+
+{% if kpi %}
+<section class="card mt-6" aria-labelledby="h-kpi"><h2 id="h-kpi" class="text-lg font-semibold mb-3">Điểm KPI đã chốt</h2>
+  {% if kpi.kind == "own" %}
+    {% if kpi.n %}<p class="text-sm">Số điểm đã chốt của bạn: <strong>{{ kpi.n }}</strong> · Trung bình: <strong>{{ kpi.avg }}</strong></p>
+    {% else %}<p class="text-sm text-slate-600">Bạn chưa có điểm KPI nào được chốt.</p>{% endif %}
+  {% else %}
+    <p class="text-sm text-slate-600 mb-3">Chỉ tính snapshot FINALIZED có hiệu lực trong phạm vi của bạn (không bao gồm bản nháp hay bản bị điều chỉnh thay thế).</p>
+    <table class="w-full text-left"><thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Phòng/đội</th><th class="px-4 py-2">Số điểm đã chốt</th><th class="px-4 py-2">Điểm trung bình</th></tr></thead>
+    <tbody class="divide-y">{% for r in kpi.rows %}<tr><td class="px-4 py-2">{{ r.dept }}</td><td class="px-4 py-2">{{ r.n }}</td><td class="px-4 py-2 font-semibold">{{ r.avg }}</td></tr>
+    {% empty %}<tr><td colspan="3" class="px-4 py-6 text-center text-slate-500">Chưa có điểm đã chốt trong phạm vi.</td></tr>{% endfor %}</tbody></table>
+    <p class="text-sm text-slate-600 mt-3">Không có bảng xếp hạng cá nhân — chỉ số liệu tổng hợp.</p>
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}
 {% block scripts %}
 <script src="{% static 'vendor/chart.umd.js' %}" defer></script>

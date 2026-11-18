@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block title %}Tạo kế hoạch định kỳ{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Tạo kế hoạch định kỳ</h1>
+<form method="post" class="card space-y-5 max-w-3xl" novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}<div class="msg msg-error" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  {% include "_field.html" with f=form.name %}
+  {% include "_field.html" with f=form.task_kind %}
+  {% include "_field.html" with f=form.reference_no %}
+  {% include "_field.html" with f=form.task_code %}
+  {% include "_field.html" with f=form.owner_department %}
+  {% include "_field.html" with f=form.year %}
+  {% include "_field.html" with f=form.due_dates %}
+  {% include "_field.html" with f=form.description_short %}
+  {% include "_field.html" with f=form.assignees %}
+  <button class="btn-primary">Tạo kế hoạch và các kỳ</button>
+</form>
+{% endblock %}

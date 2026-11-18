@@ -1,0 +1,65 @@
+{% extends "base.html" %}{% block title %}Đánh giá KPI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-1">Đánh giá KPI</h1>
+<p class="text-sm text-gray-600 mb-4">
+  {{ evaluation.record.display_name }} — cán bộ: <b>{{ evaluation.subject_user.full_name }}</b> ·
+  Phiên bản cấu hình: {{ evaluation.policy_version.family.name }} v{{ evaluation.policy_version.version }}
+  ({{ evaluation.policy_version.get_status_display }}) · Trạng thái: {{ evaluation.get_status_display }}
+</p>
+
+{% if evaluation.status == "FINALIZED" and snapshot %}
+<div class="card mb-4"><h2 class="font-semibold mb-2">Điểm hiệu lực</h2>
+  <table class="po-table"><tbody>
+    <tr><td>Điểm gốc</td><td>{{ snapshot.base_score }}</td></tr>
+    <tr><td>Ngày trễ / % trừ</td><td>{{ snapshot.late_days }} / {{ snapshot.late_deduction_percent }}%</td></tr>
+    <tr><td>Nhắc nhở / % trừ</td><td>{{ snapshot.reminder_count }} / {{ snapshot.reminder_deduction_percent }}%</td></tr>
+    <tr><td>Chiến lược</td><td>{{ snapshot.get_strategy_display }}</td></tr>
+    <tr><td class="font-semibold">Điểm cuối</td><td class="font-semibold">{{ snapshot.final_score }}</td></tr>
+  </tbody></table>
+</div>
+{% endif %}
+
+{% if can_mark %}
+<form method="post" class="card space-y-4 mb-4" novalidate>{% csrf_token %}
+  <h2 class="font-semibold">Chấm theo tiêu chí</h2>
+  {% if form.non_field_errors %}<div class="msg msg-error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  <input type="hidden" name="row_version" value="{{ evaluation.row_version }}">
+  {% for c, f, m in mark_rows %}
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+      <div class="md:col-span-3"><b>{{ c.code }}</b> — {{ c.title }} (trọng số {{ c.weight_percent }}%)
+        {% if m %}<span class="text-xs text-gray-500">(đang chấm {{ m.achievement_percent }}%)</span>{% endif %}</div>
+      {% include "_field.html" with f=f %}
+    </div>
+  {% endfor %}
+  <button class="btn-primary">Lưu đánh giá</button>
+</form>
+{% endif %}
+
+{% if preview %}
+<div class="card mb-4"><h2 class="font-semibold mb-2">Tính điểm (máy chủ)</h2>
+  <table class="po-table"><tbody>
+    <tr><td>Điểm gốc</td><td>{{ preview.base_score }}</td></tr>
+    <tr><td>Ngày trễ / % trừ</td><td>{{ preview.late_days }} / {{ preview.late_deduction_percent }}%</td></tr>
+    <tr><td>Nhắc nhở / % trừ</td><td>{{ preview.reminder_count }} / {{ preview.reminder_deduction_percent }}%</td></tr>
+    <tr><td class="font-semibold">Điểm cuối (dự kiến)</td><td class="font-semibold">{{ preview.final_score }}</td></tr>
+  </tbody></table>
+</div>
+{% endif %}
+
+{% if can_close %}
+<form method="post" action="{% url 'kpi:evaluation_finalize' evaluation.pk %}" class="card space-y-3" novalidate>{% csrf_token %}
+  <input type="hidden" name="row_version" value="{{ evaluation.row_version }}">
+  <button class="btn-primary">Chốt điểm</button>
+</form>
+{% endif %}
+
+{% if can_fix %}
+<form method="post" action="{% url 'kpi:evaluation_correct' evaluation.pk %}" class="card space-y-3" novalidate>{% csrf_token %}
+  <h2 class="font-semibold">Điều chỉnh sau chốt</h2>
+  <input type="hidden" name="row_version" value="{{ evaluation.row_version }}">
+  <div class="field"><label class="field-label" for="corr-reason">Lý do điều chỉnh</label>
+    <input id="corr-reason" name="reason" maxlength="200" required></div>
+  <button class="btn-primary">Tạo bản điều chỉnh</button>
+</form>
+{% endif %}
+{% endblock %}

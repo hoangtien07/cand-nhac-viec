@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
@@ -107,6 +109,55 @@ def report_charts(qs, now, year):
     }
 
 
+def periodic_stats(records_qs):
+    """ADR-005: plan count and period count are separate metrics — a plan with 12
+    deadlines is still 1 document, not 12."""
+    per = records_qs.filter(periodic_plan__isnull=False)
+    return {
+        "plans": per.values("periodic_plan").distinct().count(),
+        "periods": per.count(),
+        "done_periods": per.filter(status=RecordStatus.DONE).count(),
+    }
+
+
+def kpi_stats(user):
+    """WP7: aggregate only FINALIZED effective snapshots; officer sees own only;
+    no score data at all without a score-view grant (deny by default)."""
+    from apps.kpi import queries as kq
+    from apps.kpi.models import EvaluationStatus
+    from apps.kpi.policies import kpi_enabled
+
+    if not kpi_enabled() or not getattr(user, "is_business_user", False):
+        return None
+    if kq.can_view_scores(user):
+        evals = list(
+            kq.scoped_evaluations(user)
+            .filter(status=EvaluationStatus.FINALIZED)
+            .select_related("subject_user__department")
+        )
+        snaps = kq.attach_effective_snapshots(evals)
+        by_dept = {}
+        for ev in evals:
+            snap = snaps[ev.pk]
+            if not snap:
+                continue
+            name = getattr(ev.subject_user.department, "name", None) or "—"
+            row = by_dept.setdefault(name, {"n": 0, "total": 0})
+            row["n"] += 1
+            row["total"] += snap.final_score
+        rows = [
+            {"dept": k, "n": v["n"], "avg": (v["total"] / v["n"]).quantize(Decimal("0.01"))}
+            for k, v in sorted(by_dept.items())
+        ]
+        return {"kind": "scoped", "rows": rows}
+    own = kq.my_finalized_evaluations(user)
+    if own:
+        total = sum(s.final_score for _e, s in own)
+        return {"kind": "own", "n": len(own),
+                "avg": (total / len(own)).quantize(Decimal("0.01"))}
+    return {"kind": "own", "n": 0, "avg": None}
+
+
 @require_GET
 def report(request):
     user = request.user
@@ -130,6 +181,8 @@ def report(request):
             "scope": scope,
             "now": now,
             "year": year,
+            "periodic": periodic_stats(qs),
+            "kpi": kpi_stats(user),
             "charts": report_charts(qs, now, year),
         },
     )

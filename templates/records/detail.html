@@ -17,7 +17,11 @@
   <div class="lg:col-span-2 space-y-6">
     <section class="card" aria-labelledby="h-info"><h2 id="h-info" class="text-lg font-semibold mb-3">Thông tin giao việc</h2>
       <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2">
-        <div><dt class="dt">Số hiệu gốc</dt><dd>{{ record.reference_no }}</dd></div>
+        <div><dt class="dt">Loại</dt><dd>{{ record.get_task_kind_display }}</dd></div>
+        {% if record.title %}<div><dt class="dt">Tên nhiệm vụ</dt><dd>{{ record.title }}</dd></div>{% endif %}
+        {% if record.task_code %}<div><dt class="dt">Mã nhiệm vụ</dt><dd>{{ record.task_code }}</dd></div>{% endif %}
+        {% if record.periodic_plan_id %}<div><dt class="dt">Kế hoạch định kỳ</dt><dd><a class="link" href="{% url 'records:periodic_detail' record.periodic_plan_id %}">{{ record.periodic_plan.name }}</a> · Kỳ {{ record.period_index }}</dd></div>{% endif %}
+        <div><dt class="dt">Số hiệu gốc</dt><dd>{{ record.reference_no|default:"—" }}</dd></div>
         <div><dt class="dt">Phòng/đội chủ trì</dt><dd>{{ record.owner_department.name }}</dd></div>
         <div><dt class="dt">Người giao</dt><dd>{{ record.assigner.full_name }}</dd></div>
         <div><dt class="dt">Hạn xử lý</dt><dd>{{ record.due_at|date:"d/m/Y H:i" }}</dd></div>
@@ -28,7 +32,6 @@
         {% if record.completed_at %}<div><dt class="dt">Hoàn thành lúc</dt><dd>{{ record.completed_at|date:"d/m/Y H:i:s" }} · {{ record.completed_by.full_name }}</dd></div>{% endif %}
         <div class="sm:col-span-2"><dt class="dt">Người xử lý</dt><dd><ul class="list-disc ml-5">{% for a in assignees %}<li>{{ a.user.full_name }} · {{ a.user.department.name }}</li>{% endfor %}</ul></dd></div>
         {% if former_assignees %}<div class="sm:col-span-2"><dt class="dt">Người xử lý trước đây</dt><dd class="text-slate-600">{% for a in former_assignees %}{{ a.user.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>{% endif %}
-        <div class="sm:col-span-2"><dt class="dt">Người theo dõi</dt><dd>{% for w in watchers %}{{ w.user.full_name }} ({{ w.user.department.name }}){% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></div>
       </dl>
     </section>
     <section class="card p-0 overflow-x-auto" id="ket-qua" aria-labelledby="h-results"><h2 id="h-results" class="section-h">Số hiệu kết quả đã nộp</h2>
@@ -64,14 +67,12 @@
         </tbody>
       </table>
     </section>
-    {% if can_assign or can_watchers or can_deadline %}
+    {% if can_assign or can_deadline %}
     <section class="card space-y-4" aria-labelledby="h-edit"><h2 id="h-edit" class="text-lg font-semibold">Điều chỉnh giao việc</h2>
       {% if can_deadline %}<details {% if deadline_form.errors %}open{% endif %}><summary class="cursor-pointer font-medium">Đổi hạn xử lý</summary>
         <form method="post" action="{% url 'records:deadline' record.pk %}" class="mt-3 space-y-3">{% csrf_token %}{% if deadline_form.non_field_errors %}<div class="msg msg-error">{{ deadline_form.non_field_errors|join:" " }}</div>{% endif %}{% include "_field.html" with f=deadline_form.due_date %}<button class="btn-secondary">Lưu hạn mới</button></form></details>{% endif %}
       {% if can_assign %}<details {% if assignment_form.errors %}open{% endif %}><summary class="cursor-pointer font-medium">Đổi người xử lý</summary>
         <form method="post" action="{% url 'records:assignment' record.pk %}" class="mt-3 space-y-3">{% csrf_token %}{% if assignment_form.non_field_errors %}<div class="msg msg-error">{{ assignment_form.non_field_errors|join:" " }}</div>{% endif %}{% include "_field.html" with f=assignment_form.assignees %}<button class="btn-secondary">Lưu người xử lý</button></form></details>{% endif %}
-      {% if can_watchers %}<details {% if watchers_form.errors %}open{% endif %}><summary class="cursor-pointer font-medium">Đổi người theo dõi</summary>
-        <form method="post" action="{% url 'records:watchers' record.pk %}" class="mt-3 space-y-3">{% csrf_token %}{% if watchers_form.non_field_errors %}<div class="msg msg-error">{{ watchers_form.non_field_errors|join:" " }}</div>{% endif %}{% include "_field.html" with f=watchers_form.watchers %}<button class="btn-secondary">Lưu người theo dõi</button></form></details>{% endif %}
     </section>{% endif %}
     {% if can_share or folder_form %}
     <section class="card space-y-4" aria-labelledby="h-share"><h2 id="h-share" class="text-lg font-semibold">Chia sẻ và nhóm hồ sơ</h2>
@@ -101,6 +102,28 @@
         </form>
       </details>
     </section>{% endif %}
+    {% if kpi_own_eval %}<section class="card" aria-labelledby="h-kpi-own"><h2 id="h-kpi-own" class="text-lg font-semibold">Điểm KPI của tôi</h2>
+      <p class="mt-2 text-sm">Điểm đã chốt: <a class="link font-bold" href="{% url 'kpi:evaluation_detail' kpi_own_eval.pk %}">{{ kpi_own_score }}</a> — <a class="link" href="{% url 'kpi:my_scores' %}">xem tất cả</a></p>
+    </section>{% endif %}
+    {% if kpi_rows %}
+    <section class="card space-y-3" aria-labelledby="h-kpi"><h2 id="h-kpi" class="text-lg font-semibold">Đánh giá KPI theo người xử lý</h2>
+      <table class="w-full text-left text-sm"><thead class="bg-slate-100"><tr><th class="px-3 py-2">Cán bộ</th><th class="px-3 py-2">Nhắc nhở</th><th class="px-3 py-2">Đánh giá</th><th class="px-3 py-2">Thao tác</th></tr></thead>
+      <tbody class="divide-y">{% for a in kpi_rows %}<tr>
+        <td class="px-3 py-2 font-semibold">{{ a.user.full_name }}</td>
+        <td class="px-3 py-2">{{ a.kpi_reminder_count }}</td>
+        <td class="px-3 py-2">{% if a.kpi_eval %}<a class="link" href="{% url 'kpi:evaluation_detail' a.kpi_eval.pk %}">{{ a.kpi_eval.get_status_display }}</a>{% else %}Chưa đánh giá{% endif %}</td>
+        <td class="px-3 py-2 space-x-2">
+          {% if kpi_can_eval %}<form class="inline" method="post" action="{% url 'kpi:evaluation_start' record.pk a.user_id %}">{% csrf_token %}<button class="btn-secondary px-2 py-1">Đánh giá</button></form>{% endif %}
+          {% if kpi_can_remind %}<details class="inline-block"><summary class="btn-secondary px-2 py-1 cursor-pointer list-none">Nhắc nhở</summary>
+            <form method="post" action="{% url 'kpi:reminder_issue' record.pk %}" class="card absolute z-20 mt-1 p-3 space-y-2 w-64">{% csrf_token %}
+              <input type="hidden" name="subject_user" value="{{ a.user_id }}">
+              <input type="hidden" name="idempotency_key" value="{{ a.kpi_idem_key }}">
+              <input class="inp w-full" name="reason" maxlength="200" placeholder="Lý do nhắc nhở" required>
+              <button class="btn-secondary">Ghi nhận</button></form></details>{% endif %}
+        </td></tr>{% endfor %}
+      </tbody></table>
+    </section>
+    {% endif %}
     {% if audit_events %}<section class="card" aria-labelledby="h-audit"><h2 id="h-audit" class="text-lg font-semibold mb-3">Lịch sử</h2>
       <ol class="space-y-2 text-[15px]">{% for e in audit_events %}<li class="flex flex-wrap gap-x-3"><span class="text-slate-600 w-40">{{ e.created_at|date:"d/m/Y H:i:s" }}</span><span class="font-medium">{{ e.get_action_display }}</span><span>{{ e.actor.full_name|default:"Hệ thống" }}</span><span class="text-slate-600">{{ e.summary }}</span></li>{% endfor %}</ol>
     </section>{% endif %}

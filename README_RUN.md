@@ -75,3 +75,10 @@ Thay DB đang chạy: `docker compose stop web scheduler` → `scripts/restore.s
 ```bash
 docker compose down -v   # XÓA toàn bộ dữ liệu demo (volume pgdata/appvar)
 ```
+
+### Biến môi trường KPI
+
+- `KPI_ENABLED` (`1/true` bật; mặc định = `DEBUG`): bật phân hệ KPI có cấu hình (ADR-004).
+  Tắt → mọi route `/kpi/` trả 404 và không tính/chốt điểm.
+- Seed demo tạo thêm `leader.config` (KPI_CONFIG_EDIT + KPI_EVALUATE) và
+  `leader.approve` (KPI_CONFIG_PUBLISH + KPI_SCORE_FINALIZE + KPI_VIEW_UNIT) ở phường A.

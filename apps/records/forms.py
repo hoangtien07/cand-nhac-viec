@@ -1,7 +1,11 @@
+import datetime
+import re
+
 from django import forms
 
 from . import policies
 from .codes import MAX_CODE_LENGTH, InvalidCode, clean_display_code
+from .models import TaskKind
 from .timeutils import db_now, local_date
 
 
@@ -24,10 +28,21 @@ class DueDateMixin:
 
 
 class RecordCreateForm(DueDateMixin, forms.Form):
+    task_kind = forms.ChoiceField(
+        label="Loại nhiệm vụ",
+        choices=TaskKind.choices,
+        initial=TaskKind.DOCUMENT,
+        widget=forms.RadioSelect,
+    )
+    title = forms.CharField(
+        label="Tên nhiệm vụ (bắt buộc cho «Nhiệm vụ khác»)", max_length=200, required=False
+    )
+    task_code = forms.CharField(label="Mã nhiệm vụ nội bộ (không bắt buộc)", max_length=64, required=False)
     reference_no = forms.CharField(
         label="Số hiệu gốc",
         max_length=MAX_CODE_LENGTH,
-        help_text="Ví dụ: CV-123/2026. Chỉ nhập số hiệu, không nhập nội dung hồ sơ.",
+        required=False,
+        help_text="Bắt buộc cho văn bản. Ví dụ: CV-123/2026. Chỉ nhập số hiệu, không nhập nội dung hồ sơ.",
     )
     owner_department = forms.ModelChoiceField(label="Phòng/đội chủ trì", queryset=None, empty_label=None)
     due_date = forms.DateField(
@@ -41,25 +56,95 @@ class RecordCreateForm(DueDateMixin, forms.Form):
     assignees = UserChoiceField(
         label="Người xử lý (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
     )
-    watchers = UserChoiceField(
-        label="Người theo dõi (không bắt buộc)",
-        queryset=None,
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-    )
 
     def __init__(self, user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
         self.fields["owner_department"].queryset = policies.creatable_departments(user)
         self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, None))
-        self.fields["watchers"].queryset = _user_qs(policies.watchable_users(user))
 
     def clean_reference_no(self):
+        value = (self.cleaned_data.get("reference_no") or "").strip()
+        if not value:
+            return ""
         try:
-            return clean_display_code(self.cleaned_data["reference_no"])
+            return clean_display_code(value)
         except InvalidCode as e:
             raise forms.ValidationError(str(e)) from e
+
+    def clean(self):
+        cleaned = super().clean()
+        kind = cleaned.get("task_kind")
+        if kind == TaskKind.DOCUMENT and not cleaned.get("reference_no"):
+            self.add_error("reference_no", "Văn bản bắt buộc có số hiệu.")
+        if kind == TaskKind.OTHER and not (cleaned.get("title") or "").strip():
+            self.add_error("title", "Nhiệm vụ khác bắt buộc có tên nhiệm vụ.")
+        return cleaned
+
+
+class PeriodicPlanForm(forms.Form):
+    """STT10/WP2: một kế hoạch định kỳ → 1..12 kỳ (WorkRecord con), hạn mỗi kỳ một dòng."""
+
+    name = forms.CharField(label="Tên văn bản/nhiệm vụ định kỳ", max_length=200)
+    task_kind = forms.ChoiceField(
+        label="Loại nhiệm vụ",
+        choices=TaskKind.choices,
+        initial=TaskKind.DOCUMENT,
+        widget=forms.RadioSelect,
+    )
+    reference_no = forms.CharField(
+        label="Số hiệu chung (không bắt buộc)", max_length=MAX_CODE_LENGTH, required=False
+    )
+    task_code = forms.CharField(label="Mã nhiệm vụ nội bộ (không bắt buộc)", max_length=64, required=False)
+    owner_department = forms.ModelChoiceField(label="Phòng/đội chủ trì", queryset=None, empty_label=None)
+    year = forms.IntegerField(label="Năm áp dụng", min_value=2000, max_value=2100)
+    due_dates = forms.CharField(
+        label="Ngày hạn các kỳ — một ngày mỗi dòng (1–12 dòng)",
+        widget=forms.Textarea(
+            attrs={"rows": 12, "placeholder": "2026-03-31\n2026-06-30\n2026-09-30\n2026-12-31"}
+        ),
+        help_text="Định dạng YYYY-MM-DD. Tất cả ngày phải thuộc năm áp dụng, không trùng nhau.",
+    )
+    description_short = forms.CharField(
+        label="Ghi chú/mô tả ngắn (không bắt buộc)", max_length=200, required=False
+    )
+    assignees = UserChoiceField(
+        label="Người xử lý cho mọi kỳ (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner_department"].queryset = policies.creatable_departments(user)
+        self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, None))
+        if not self.is_bound:
+            self.fields["year"].initial = local_date(db_now()).year
+
+    def clean_reference_no(self):
+        value = (self.cleaned_data.get("reference_no") or "").strip()
+        if not value:
+            return ""
+        try:
+            return clean_display_code(value)
+        except InvalidCode as e:
+            raise forms.ValidationError(str(e)) from e
+
+    def clean_due_dates(self):
+        raw = self.cleaned_data["due_dates"]
+        days = []
+        errors = []
+        for line in re.split(r"[\n,;]+", raw):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                days.append(datetime.date.fromisoformat(line))
+            except ValueError:
+                errors.append(f"«{line}» không đúng định dạng YYYY-MM-DD.")
+        if errors:
+            raise forms.ValidationError(errors)
+        if not days:
+            raise forms.ValidationError("Cần ít nhất một ngày hạn.")
+        return days
 
 
 class AssignmentForm(forms.Form):
@@ -70,14 +155,8 @@ class AssignmentForm(forms.Form):
         self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, record.owner_department))
 
 
-class WatchersForm(forms.Form):
-    watchers = UserChoiceField(
-        label="Người theo dõi", queryset=None, required=False, widget=forms.CheckboxSelectMultiple
-    )
-
-    def __init__(self, user, record, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["watchers"].queryset = _user_qs(policies.watchable_users(user))
+# STT2/D13: no new watchers via UI. WatchersForm removed; the update_watchers service stays
+# for legacy data maintenance only — it is no longer reachable from any view.
 
 
 class DeadlineForm(DueDateMixin, forms.Form):
@@ -114,12 +193,6 @@ class RecordEditForm(forms.Form):
     assignees = UserChoiceField(
         label="Người xử lý (ít nhất 1)", queryset=None, widget=forms.CheckboxSelectMultiple
     )
-    watchers = UserChoiceField(
-        label="Người theo dõi (không bắt buộc)",
-        queryset=None,
-        required=False,
-        widget=forms.CheckboxSelectMultiple,
-    )
 
     def __init__(self, user, record, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -128,7 +201,6 @@ class RecordEditForm(forms.Form):
         self.fields["owner_department"].queryset = policies.creatable_departments(user)
         self.fields["folder"].queryset = movable_folders(user, record)
         self.fields["assignees"].queryset = _user_qs(policies.assignable_users(user, record.owner_department))
-        self.fields["watchers"].queryset = _user_qs(policies.watchable_users(user))
 
     def clean_reference_no(self):
         try:

@@ -39,7 +39,12 @@ INSTALLED_APPS = [
     "apps.records",
     "apps.notifications",
     "apps.reports",
+    "apps.kpi",
 ]
+
+# KPI subsystem gate (PLAN §0): off => every KPI route/policy denies. ON in dev/test,
+# OFF in production until the business approves score activation (release barrier B).
+KPI_ENABLED = env_bool("KPI_ENABLED", DEBUG)
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

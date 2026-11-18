@@ -160,9 +160,12 @@ def test_record_detail_shows_folder_and_access_reason(org, client_for):
 
 
 @pytest.mark.django_db
-def test_sidebar_has_folder_nav_for_business_only(org, client_for):
+def test_folder_area_not_in_sidebar_but_area_still_works(org, client_for):
+    # STT6: "Nhóm hồ sơ" nav label replaced by "Thống kê nhiệm vụ công việc"; folder pages
+    # remain reachable via record detail links.
     body = client_for(org.o1).get("/").content.decode()
-    assert "Nhóm hồ sơ" in body and "/nhom-ho-so/" in body
+    assert "Nhóm hồ sơ" not in body
+    assert "Thống kê nhiệm vụ công việc" in body
     body = client_for(org.admin).get("/quan-tri/").content.decode()
     assert "/nhom-ho-so/" not in body
     # sysadmin hitting the folder area directly gets 403

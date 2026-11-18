@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}Hồ sơ{% endblock %}
 {% block content %}
-<div class="flex flex-wrap items-center gap-3 mb-4"><div><h1 class="text-2xl font-bold">Hồ sơ công việc</h1><p class="dt">Hồ sơ trong phạm vi bạn được xem, tạo trong năm làm việc {{ active_work_year }}.</p></div>
-  {% if can_create %}<a class="btn-primary ml-auto" href="{% url 'records:create' %}">+ Tạo hồ sơ</a>{% endif %}</div>
+<div class="flex flex-wrap items-center gap-3 mb-4"><div><h1 class="text-2xl font-bold">Công tác tham mưu, xử lý văn bản</h1><p class="dt">Hồ sơ trong phạm vi bạn được xem, tạo trong năm làm việc {{ active_work_year }}.</p></div>
+  {% if can_create %}<a class="btn-primary ml-auto" href="{% url 'records:create' %}">+ Thêm nhiệm vụ</a>{% endif %}</div>
 <form method="get" class="card flex flex-wrap gap-3 items-end mb-4" role="search" data-trim-params
       hx-get="{% url 'records:list' %}" hx-target="#record-table" hx-trigger="input changed delay:400ms from:#id_q, change from:select, submit" hx-push-url="true">
   <div class="flex-1 min-w-56"><label class="label" for="id_q">Tìm số hiệu (gốc hoặc kết quả)</label>{{ form.q }}</div>

@@ -99,6 +99,26 @@ Người vừa là watcher vừa là assignee được quyền nộp nhờ vai t
 
 Tất cả màn hình dùng desktop web responsive; không xây app điện thoại. Không đưa sidebar lồng nhiều tầng, sprint, Kanban, chat, AI, nhập văn bản dài. Form nộp kết quả chỉ có **số hiệu** và nút xác nhận; ngày nộp chỉ đọc và lấy từ DB. Dùng empty states, xác nhận trước khi nộp, font đủ lớn, nhãn tiếng Việt, hỗ trợ bàn phím.
 
+## H. Yêu cầu mới 18/11/2026 — KPI có cấu hình (NEW REQUIREMENT)
+
+Nguồn: `Book1.xlsx` Sheet1 A4:C17; plan `PLAN_CAND_NHAC_VIEC_KPI_CONFIG_MAIN`. Chi tiết thiết kế:
+`docs/ADR-004-kpi-config-and-personal-scores.md`, `docs/ADR-005-periodic-plans.md`.
+
+- `CONFIRMED` (Excel nói rõ): bỏ mục "Đang xử lý" và "Người theo dõi" khỏi UI; đổi nhãn chức
+  năng; 5 tổ công tác mỗi tổ ≥1 tài khoản cán bộ; 2 tài khoản lãnh đạo; văn bản định kỳ tối
+  đa 12 hạn/năm; nhiệm vụ khác tương đương văn bản; lãnh đạo xem điểm từng cán bộ, cán bộ chỉ
+  xem điểm mình; chậm hạn và nhắc nhở bị trừ điểm; ví dụ tên "Công an phường A" chỉ là demo.
+- `NEW REQUIREMENT`: phân hệ KPI có **màn hình cấu hình và quyền thao tác riêng** — bộ tiêu
+  chí theo loại nhiệm vụ có version/trọng số, dải trừ chậm hạn và nhắc nhở, công thức gộp,
+  vòng đời DRAFT→ACTIVE→SUPERSEDED, đánh giá/chốt/điều chỉnh điểm từng cán bộ.
+- `OPEN DECISIONS` (D01–D17) — chưa chốt, giữ ở gate: định danh cán bộ trên tài khoản dùng
+  chung; điểm cá nhân vs tổ; tiêu chí/trọng số/max_points; ngưỡng ngày 5/7; cách kết hợp hai
+  khoản trừ; định nghĩa "1 lần nhắc"; nhiệm vụ chưa DONE cuối kỳ; công thức tổng KPI
+  tháng/năm; tách trách nhiệm chấm/chốt; hạn hiệu lực sau đổi hạn; pin policy version theo
+  kỳ; chứng cứ hoàn thành OTHER; xử lý watcher cũ; mức độ xóa "Nhóm hồ sơ"; officer xem điểm
+  nháp; xếp loại điểm; KPI hồi tố. Excel `C15/C16` ghi trừ 25/50/75/100% nhưng các mốc 5 và
+  7 giao nhau và không quy định công thức gộp — cấu hình mẫu lưu ở `DRAFT`, không activate.
+
 ## G. Điều kiện thành công
 
 Một cán bộ không chuyên CNTT có thể: (1) tìm hồ sơ, (2) nộp một số hiệu, (3) thấy hồ sơ đã hoàn thành; người giao theo dõi được; quản lý nhận được thông báo khi quá hạn; mọi quyền và lịch sử được bảo toàn. **Đây là mục tiêu thiết kế**, phải kiểm chứng bằng usability test thực tế, không coi như đã đạt.

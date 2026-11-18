@@ -9,3 +9,4 @@ DATABASES["default"]["CONN_MAX_AGE"] = 0  # noqa: F405
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}  # noqa: F405
 AXES_ENABLED = True
+KPI_ENABLED = True

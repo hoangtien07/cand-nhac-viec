@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block title %}Cấu hình KPI{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Cấu hình KPI</h1>
+  {% if can_edit %}<a class="btn-primary" href="{% url 'kpi:config_create' %}">Tạo bản nháp</a>{% endif %}
+</div>
+<div class="card overflow-x-auto"><table class="po-table">
+  <thead><tr><th>Bộ thang</th><th>Loại</th><th>Phiên bản</th><th>Trạng thái</th><th>Thang điểm</th><th>Chiến lược</th><th></th></tr></thead>
+  <tbody>
+    {% for v in versions %}
+    <tr>
+      <td>{{ v.family.name }}</td>
+      <td>{{ v.family.get_task_kind_display }}</td>
+      <td>v{{ v.version }}</td>
+      <td>{{ v.get_status_display }}</td>
+      <td>{{ v.max_points }}</td>
+      <td>{{ v.get_combination_strategy_display }}</td>
+      <td><a class="link" href="{% url 'kpi:config_detail' v.pk %}">Chi tiết</a></td>
+    </tr>
+    {% empty %}<tr><td colspan="7" class="text-center text-gray-500">Chưa có cấu hình nào.</td></tr>{% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

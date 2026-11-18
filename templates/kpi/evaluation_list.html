@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Đánh giá & chốt điểm{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Đánh giá &amp; chốt điểm</h1>
+<div class="card p-0 overflow-x-auto"><table class="w-full text-left">
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Nhiệm vụ</th><th class="px-4 py-2">Cán bộ</th><th class="px-4 py-2">Chính sách</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Cập nhật</th><th class="px-4 py-2"></th></tr></thead>
+  <tbody class="divide-y">
+  {% for ev in evaluations %}
+  <tr class="hover:bg-slate-50"><td class="px-4 py-2"><a class="link font-semibold" href="{% url 'records:detail' ev.record_id %}">{{ ev.record.display_name }}</a></td>
+    <td class="px-4 py-2">{{ ev.subject_user.full_name }}</td>
+    <td class="px-4 py-2">v{{ ev.policy_version.version }} — {{ ev.policy_version.family.name }}</td>
+    <td class="px-4 py-2">{{ ev.get_status_display }}</td>
+    <td class="px-4 py-2">{{ ev.updated_at|date:"d/m/Y H:i" }}</td>
+    <td class="px-4 py-2"><a class="btn-secondary px-2 py-1" href="{% url 'kpi:evaluation_detail' ev.pk %}">Mở</a></td></tr>
+  {% empty %}<tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Chưa có phiên đánh giá nào trong phạm vi.</td></tr>{% endfor %}
+  </tbody></table></div>
+{% endblock %}

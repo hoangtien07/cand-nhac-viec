@@ -13,6 +13,8 @@ urlpatterns = [
     path("nhom-ho-so/", include("apps.organization.folder_urls")),
     path("thong-bao/", include("apps.notifications.urls")),
     path("bao-cao/", include("apps.reports.urls")),
+    path("kpi/", include("apps.kpi.urls")),
+    path("quan-tri/", include("apps.kpi.admin_urls")),
     path("quan-tri/", include("apps.accounts.admin_urls")),
 ]
 

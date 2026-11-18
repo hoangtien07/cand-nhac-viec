@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}Quyền KPI{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Cấp quyền phân hệ KPI</h1>
+<p class="text-sm text-gray-600 mb-4">Trang này chỉ quản lý metadata quyền; không hiển thị điểm hay nội dung đánh giá.</p>
+
+<div class="card mb-6 overflow-x-auto"><table class="po-table">
+  <thead><tr>
+    <th>Tài khoản</th><th>Quyền</th><th>Phạm vi</th><th>Phòng/đội</th><th>Người cấp</th><th>Lý do</th><th>Trạng thái</th><th></th>
+  </tr></thead><tbody>
+  {% for g in grants %}<tr>
+    <td>{{ g.user.full_name }}</td><td>{{ g.get_capability_display }}</td>
+    <td>{{ g.get_scope_display }}</td><td>{{ g.department.name|default:"—" }}</td>
+    <td>{{ g.granted_by.full_name }}</td><td>{{ g.reason }}</td>
+    <td>{% if g.revoked_at %}Đã thu hồi{% else %}Đang hiệu lực{% endif %}</td>
+    <td>{% if not g.revoked_at %}
+      <form method="post" action="{% url 'kpi_admin:grant_revoke' g.pk %}" class="inline">{% csrf_token %}
+        <button class="link text-red-700" type="submit">Thu hồi</button>
+      </form>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="8" class="text-center text-gray-500">Chưa có grant nào.</td></tr>{% endfor %}
+  </tbody></table></div>
+
+<form method="post" class="card space-y-4 max-w-2xl" novalidate>{% csrf_token %}
+  <h2 class="font-semibold">Cấp quyền mới</h2>
+  {% if form.non_field_errors %}<div class="msg msg-error" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  {% include "_field.html" with f=form.user %}
+  {% include "_field.html" with f=form.capability %}
+  {% include "_field.html" with f=form.scope %}
+  {% include "_field.html" with f=form.department %}
+  {% include "_field.html" with f=form.approved_by %}
+  {% include "_field.html" with f=form.reason %}
+  <button class="btn-primary">Cấp quyền</button>
+</form>
+{% endblock %}

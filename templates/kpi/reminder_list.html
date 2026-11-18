@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Ghi nhận nhắc nhở{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Ghi nhận nhắc nhở</h1>
+<div class="card p-0 overflow-x-auto"><table class="w-full text-left">
+  <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Thời điểm</th><th class="px-4 py-2">Nhiệm vụ</th><th class="px-4 py-2">Cán bộ</th><th class="px-4 py-2">Người ghi</th><th class="px-4 py-2">Lý do</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2"></th></tr></thead>
+  <tbody class="divide-y">
+  {% for e in events %}
+  <tr class="hover:bg-slate-50"><td class="px-4 py-2">{{ e.issued_at|date:"d/m/Y H:i" }}</td>
+    <td class="px-4 py-2"><a class="link" href="{% url 'records:detail' e.record_id %}">{{ e.record.display_name }}</a></td>
+    <td class="px-4 py-2">{{ e.subject_user.full_name }}</td><td class="px-4 py-2">{{ e.actor.full_name }}</td>
+    <td class="px-4 py-2">{{ e.reason }}</td>
+    <td class="px-4 py-2">{% if e.is_revoked %}<span class="text-red-700">Đã thu hồi ({{ e.revocation.actor.full_name }})</span>{% else %}Có hiệu lực{% endif %}</td>
+    <td class="px-4 py-2">{% if not e.is_revoked %}<form method="post" action="{% url 'kpi:reminder_revoke' e.pk %}">{% csrf_token %}
+      <input type="hidden" name="reason" value="Thu hồi nhắc nhở"><button class="btn-secondary px-2 py-1">Thu hồi</button></form>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="7" class="px-4 py-6 text-center text-slate-500">Chưa có sự kiện nhắc nhở.</td></tr>{% endfor %}
+  </tbody></table></div>
+<p class="text-sm text-slate-600 mt-3">Ghi nhắc nhở mới từ trang chi tiết nhiệm vụ (khung «Người xử lý»).</p>
+{% endblock %}

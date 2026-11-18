@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -20,14 +22,14 @@ from .forms import (
     AssignmentForm,
     CorrectionForm,
     DeadlineForm,
+    PeriodicPlanForm,
     RecordCreateForm,
     RecordEditForm,
     RecordFilterForm,
     RevokeResultForm,
     SubmitResultForm,
-    WatchersForm,
 )
-from .models import RecordAssignee, RecordStatus, RecordWatcher, ResultReference, WorkRecord
+from .models import PeriodicPlan, RecordAssignee, RecordStatus, ResultReference, WorkRecord
 from .queries import attach_state, due_soon, overdue
 from .timeutils import db_now, local_date
 from .ui_state import SESSION_KEY, filter_created_in_work_year, get_active_work_year, parse_work_year
@@ -135,14 +137,27 @@ def record_list(request):
             qs = due_soon(qs, now)
     page = Paginator(qs.order_by("status", "due_at"), 25).get_page(request.GET.get("page"))
     page.object_list = attach_state(page.object_list, now)
+    from apps.kpi import policies as kpol
+    from apps.kpi import queries as kq
+
+    kpi_cols = kpol.kpi_enabled() and user.is_business_user
+    eval_statuses = kq.eval_status_map([r.pk for r in page.object_list]) if kpi_cols else {}
+    own_scores = kq.own_score_map(user, [r.pk for r in page.object_list]) if kpi_cols else {}
     for r in page.object_list:
         r.row_can_edit = policies.can_edit_record_metadata(user, r)
         r.row_can_submit = policies.can_submit_result(user, r)
+        if kpi_cols:
+            r.kpi_eval_label = {
+                "FINALIZED": "Đã chốt", "DRAFT": "Đang đánh giá"
+            }.get(eval_statuses.get(r.pk), "Chưa đánh giá")
+            own = own_scores.get(r.pk)
+            r.kpi_own_eval_id, r.kpi_own_score = own if own else (None, None)
         r.row_can_archive = policies.can_archive_record(user, r)
     state = {k: v for k, v in request.GET.items() if k != "page"}
     ctx = {
         "form": form,
         "page": page,
+        "kpi_cols": kpi_cols,
         "can_create": policies.creatable_departments(user).exists(),
         "prev_href": dashboard_queries.query_string(state, page=page.previous_page_number())
         if page.has_previous()
@@ -168,10 +183,12 @@ def record_create(request):
             record = services.create_record(
                 user,
                 reference_no=cd["reference_no"],
+                task_kind=cd["task_kind"],
+                title=cd["title"],
+                task_code=cd["task_code"],
                 owner_department=cd["owner_department"],
                 due_date=cd["due_date"],
                 assignees=list(cd["assignees"]),
-                watchers=list(cd["watchers"]),
                 description_short=cd["description_short"],
             )
         except ValidationError as e:
@@ -183,7 +200,7 @@ def record_create(request):
                 .exclude(pk=record.pk)
                 .count()
             )
-            messages.success(request, f"Đã tạo hồ sơ {record.reference_no}.")
+            messages.success(request, f"Đã tạo hồ sơ {record.display_name}.")
             if dupes:
                 messages.warning(
                     request,
@@ -300,13 +317,10 @@ def _detail_context(request, record, **extra):
     now = db_now()
     attach_state([record], now)
     assignees = RecordAssignee.objects.filter(record=record).select_related("user__department")
-    watchers = RecordWatcher.objects.filter(record=record).select_related("user__department")
     active_assignees = [a for a in assignees if a.is_active]
-    active_watchers = [w for w in watchers if w.is_active]
     perms = {
         "can_submit": policies.can_submit_result(user, record),
         "can_assign": policies.can_manage_assignment(user, record),
-        "can_watchers": policies.can_manage_watchers(user, record),
         "can_deadline": policies.can_edit_deadline(user, record),
         "can_edit": policies.can_edit_record_metadata(user, record),
         "can_archive": policies.can_archive_record(user, record),
@@ -327,7 +341,6 @@ def _detail_context(request, record, **extra):
         "now": now,
         "assignees": active_assignees,
         "former_assignees": [a for a in assignees if not a.is_active],
-        "watchers": active_watchers,
         "results": results,
         "audit_events": _audit_rows(record) if policies.can_view_audit(user, record) else [],
         "submit_form": SubmitResultForm(),
@@ -353,12 +366,32 @@ def _detail_context(request, record, **extra):
         ctx["assignment_form"] = AssignmentForm(
             user, record, initial={"assignees": [a.user_id for a in active_assignees]}
         )
-    if perms["can_watchers"]:
-        ctx["watchers_form"] = WatchersForm(
-            user, record, initial={"watchers": [w.user_id for w in active_watchers]}
-        )
     if perms["can_deadline"]:
         ctx["deadline_form"] = DeadlineForm(initial={"due_date": local_date(record.due_at)})
+    from apps.kpi import policies as kpol
+    from apps.kpi.models import KpiEvaluation, KpiReminderEvent
+
+    if kpol.kpi_enabled() and user.is_business_user:
+        evals = {e.subject_user_id: e for e in KpiEvaluation.objects.filter(record=record)}
+        can_eval = kpol.can_evaluate(user, record.owner_department_id)
+        can_remind = kpol.can_issue_kpi_reminder(user, record.owner_department_id)
+        for a in active_assignees:
+            a.kpi_eval = evals.get(a.user_id)
+            a.kpi_reminder_count = KpiReminderEvent.objects.filter(
+                record=record, subject_user_id=a.user_id, revocation__isnull=True
+            ).count()
+            a.kpi_idem_key = uuid.uuid4().hex  # per-assignee: unit-wide unique constraint
+        ctx.update(
+            kpi_rows=active_assignees if (can_eval or can_remind) else [],
+            kpi_can_eval=can_eval,
+            kpi_can_remind=can_remind,
+        )
+        own_ev = evals.get(user.pk)
+        if own_ev and own_ev.status == "FINALIZED":
+            from apps.kpi import queries as kq
+
+            snap = kq.attach_effective_snapshots([own_ev])[own_ev.pk]
+            ctx.update(kpi_own_eval=own_ev, kpi_own_score=snap.final_score if snap else None)
     ctx.update(extra)
     return ctx
 
@@ -545,20 +578,6 @@ def update_assignment(request, pk):
 
 
 @require_POST
-def update_watchers(request, pk):
-    record = _get_visible(request.user, pk)
-    policies.require(policies.can_manage_watchers(request.user, record))
-    return _mutate(
-        request,
-        pk,
-        WatchersForm,
-        lambda u, r, cd: services.update_watchers(u, r.pk, list(cd["watchers"])),
-        "Đã cập nhật người theo dõi.",
-        "watchers_form",
-    )
-
-
-@require_POST
 def update_deadline(request, pk):
     record = _get_visible(request.user, pk)
     policies.require(policies.can_edit_deadline(request.user, record))
@@ -604,7 +623,6 @@ def record_edit(request, pk):
                 "due_date": local_date(record.due_at),
                 "description_short": record.description_short,
                 "assignees": [a.user_id for a in record.assignees.filter(is_active=True)],
-                "watchers": [w.user_id for w in record.watchers.filter(is_active=True)],
             },
         )
     return render(request, "records/edit.html", {"record": record, "form": form})
@@ -627,9 +645,6 @@ def _apply_edit(user, record, cd):
     current = sorted(record.assignees.filter(is_active=True).values_list("user_id", flat=True))
     if sorted(u.pk for u in cd["assignees"]) != current:
         services.update_assignment(user, record.pk, list(cd["assignees"]))
-    current_w = sorted(record.watchers.filter(is_active=True).values_list("user_id", flat=True))
-    if sorted(u.pk for u in cd["watchers"]) != current_w:
-        services.update_watchers(user, record.pk, list(cd["watchers"]))
     if cd["due_date"] != local_date(record.due_at):
         services.update_deadline(user, record.pk, cd["due_date"])
 
@@ -709,4 +724,92 @@ def revoke_result(request, pk, result_id):
         result_id,
         RevokeResultForm,
         lambda u, r, cd: services.revoke_result_reference(u, r.pk, result_id, cd["reason"]),
+    )
+
+
+@require_POST
+def complete_other_task(request, pk):
+    """D12: nhiệm vụ OTHER hoàn thành bằng xác nhận assignee (không qua số hiệu kết quả)."""
+    record = _get_visible(request.user, pk)
+    policies.require(policies.can_complete_other_task(request.user, record))
+    try:
+        services.complete_other_task(request.user, pk)
+    except WorkRecord.DoesNotExist:
+        raise Http404 from None
+    except ValidationError as e:
+        messages.error(request, "; ".join(e.messages))
+    else:
+        messages.success(request, "Đã ghi nhận hoàn thành nhiệm vụ.")
+    return redirect("records:detail", pk=record.pk)
+
+
+@require_GET
+def periodic_plan_list(request):
+    user = request.user
+    _require_business(user)
+    plans = (
+        policies.periodic_plans_queryset(user)
+        .select_related("owner_department")
+        .prefetch_related("periods")
+    )
+    return render(request, "records/periodic_list.html", {"plans": plans})
+
+
+@require_http_methods(["GET", "POST"])
+def periodic_plan_create(request):
+    user = request.user
+    _require_business(user)
+    if not policies.creatable_departments(user).exists():
+        raise PermissionDenied("Bạn không có quyền tạo kế hoạch định kỳ.")
+    form = PeriodicPlanForm(user, request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        cd = form.cleaned_data
+        try:
+            plan = services.create_periodic_plan(
+                user,
+                name=cd["name"],
+                task_kind=cd["task_kind"],
+                reference_no=cd["reference_no"],
+                task_code=cd["task_code"],
+                owner_department=cd["owner_department"],
+                year=cd["year"],
+                due_dates=cd["due_dates"],
+                assignees=list(cd["assignees"]),
+                description_short=cd["description_short"],
+            )
+        except ValidationError as e:
+            form.add_error(None, e)
+        else:
+            messages.success(request, f"Đã tạo kế hoạch định kỳ «{plan.name}» ({plan.period_count} kỳ).")
+            return redirect("records:periodic_detail", pk=plan.pk)
+    return render(
+        request,
+        "records/periodic_create.html",
+        {"form": form},
+        status=400 if form.errors else 200,
+    )
+
+
+@require_GET
+def periodic_plan_detail(request, pk):
+    user = request.user
+    _require_business(user)
+    try:
+        plan = PeriodicPlan.objects.select_related("owner_department", "created_by").get(pk=pk)
+    except (PeriodicPlan.DoesNotExist, ValidationError):
+        raise Http404 from None
+    policies.require(policies.can_view_plan(user, plan))
+    periods = (
+        policies.visible_records_queryset(user)
+        .filter(periodic_plan=plan)
+        .select_related("owner_department")
+        .prefetch_related("assignees__user", "results")
+        .order_by("period_index")
+    )
+    now = db_now()
+    attach_state(periods, now)
+    return render(
+        request,
+        "records/periodic_detail.html",
+        {"plan": plan, "periods": periods, "now": now},
     )

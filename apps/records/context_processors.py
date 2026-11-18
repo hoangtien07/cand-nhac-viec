@@ -8,11 +8,15 @@ from .ui_state import get_active_work_year, work_year_choices
 _NAV = {
     "dashboard": "home",
     "records:create": "create",
+    "records:periodic_list": "periodic",
+    "records:periodic_create": "periodic",
+    "records:periodic_detail": "periodic",
     "records": "records",
     "folders": "folders",
     "reports": "reports",
     "notifications": "notifications",
     "adminpanel": "admin",
+    "kpi": "kpi",
 }
 
 
@@ -46,6 +50,25 @@ def ui_shell(request):
             "work_year_choices": work_year_choices(),
         }
     unit_name = user.unit.name if user.unit_id else ""
+    kpi_ctx = {}
+    from apps.kpi.policies import can_manage_grants, can_view_kpi_config, kpi_enabled
+
+    if kpi_enabled() and user.unit_id:
+        from apps.kpi.policies import (
+            can_evaluate,
+            can_finalize,
+            can_issue_kpi_reminder,
+            can_view_scoped_scores,
+        )
+
+        kpi_ctx = {
+            "kpi_flag_on": True,
+            "kpi_can_config": can_view_kpi_config(user),
+            "kpi_can_grant": can_manage_grants(user),
+            "kpi_can_eval": can_evaluate(user) or can_finalize(user),
+            "kpi_can_board": can_view_scoped_scores(user),
+            "kpi_can_remind": can_issue_kpi_reminder(user),
+        }
     return {
         "current_user_initials": initials(user.full_name),
         "current_department_label": user.department.name if user.department_id else unit_name,
@@ -53,4 +76,5 @@ def ui_shell(request):
         "can_create_record": user.is_business_user and policies.creatable_departments(user).exists(),
         **{f"nav_is_{k}": nav_key == k for k in set(_NAV.values())},
         **year_ctx,
+        **kpi_ctx,
     }
