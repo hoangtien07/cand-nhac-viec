@@ -16,7 +16,17 @@ _NAV = {
     "reports": "reports",
     "notifications": "notifications",
     "adminpanel": "admin",
-    "kpi": "kpi",
+    "kpi:my_scores": "kpi_my",
+    "kpi:score_board": "kpi_board",
+    "kpi:evaluation_list": "kpi_eval",
+    "kpi:evaluation_start": "kpi_eval",
+    "kpi:evaluation_detail": "kpi_eval",
+    "kpi:evaluation_finalize": "kpi_eval",
+    "kpi:evaluation_correct": "kpi_eval",
+    "kpi:reminder_list": "kpi_remind",
+    "kpi:reminder_issue": "kpi_remind",
+    "kpi:reminder_revoke": "kpi_remind",
+    "kpi": "kpi_config",
 }
 
 
