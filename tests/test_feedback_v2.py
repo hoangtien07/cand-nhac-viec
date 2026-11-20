@@ -196,7 +196,7 @@ def _version_15(org):
         task_kind="DOCUMENT",
         name="Thang 15 điểm – đề xuất",
         max_points=Decimal("15.00"),
-        combination_strategy="CAPPED_ADDITIVE",
+        combination_strategy="MAX_DEDUCTION",
     )
     ksvc.replace_criteria(
         org.leader,
@@ -273,14 +273,14 @@ def test_seed_kpi_draft_15_idempotent_after_family_rename(org):
     # family phải tồn tại (command yêu cầu); tạo sẵn bằng một draft bất kỳ.
     ksvc.create_draft(
         org.leader, task_kind="DOCUMENT", name="Gốc", max_points=Decimal("10.00"),
-        combination_strategy="CAPPED_ADDITIVE",
+        combination_strategy="MAX_DEDUCTION",
     )
     call_command("seed_kpi_draft_15", actor=org.leader.username)
     family = KpiPolicyFamily.objects.get(unit=org.ua, task_kind="DOCUMENT")
     # Người dùng soạn draft khác → family.name bị đổi (create_draft ghi đè tên).
     ksvc.create_draft(
         org.leader, task_kind="DOCUMENT", name="Tên khác", max_points=Decimal("8.00"),
-        combination_strategy="CAPPED_ADDITIVE",
+        combination_strategy="MAX_DEDUCTION",
     )
     call_command("seed_kpi_draft_15", actor=org.leader.username)  # phải bỏ qua
     drafts = family.versions.filter(status=PolicyVersionStatus.DRAFT, max_points=Decimal("15.00"))
@@ -314,7 +314,7 @@ def test_seed_kpi_draft_15_not_confused_by_manual_15_draft(org):
     )
     manual = ksvc.create_draft(
         org.leader, task_kind="DOCUMENT", name="Draft tay 15đ", max_points=Decimal("15.00"),
-        combination_strategy="CAPPED_ADDITIVE",
+        combination_strategy="MAX_DEDUCTION",
     )
     ksvc.replace_penalty_bands(
         org.leader,

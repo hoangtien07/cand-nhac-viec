@@ -1,6 +1,7 @@
 """EU-04 (SPEC FEEDBACK V2): tạo PHIÊN BẢN NHÁP KPI 15 điểm cho loại DOCUMENT.
 
-Dải trừ theo đề xuất phản ánh (D01–D02 CHƯA chốt → KHÔNG publish):
+Dải trừ theo đề xuất phản ánh (D01–D04 ĐÃ chốt 2026-11-20: D01 khớp liền mạch,
+D02 MAX_DEDUCTION, D03 tròn điểm trừ lỗi, D04 chốt 0 khi quá hạn ngưỡng):
   Nhắc nhở: 0 lần:0%, 1:25%, 2:50%, 3:75%, >=4:100%
   Trễ hạn : 0 ngày:0%, 1-5:25%, 6-7:50%, 8-10:75%, >=11:100%
 
@@ -108,7 +109,7 @@ class Command(BaseCommand):
             task_kind=TaskKind.DOCUMENT,
             name=NAME,
             max_points=Decimal("15.00"),
-            combination_strategy=CombinationStrategy.CAPPED_ADDITIVE,
+            combination_strategy=CombinationStrategy.MAX_DEDUCTION,
             clone_from_id=active.pk if active else None,
         )
         services.replace_penalty_bands(actor, version.pk, BANDS)

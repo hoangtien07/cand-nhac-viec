@@ -122,15 +122,37 @@ def test_evaluation_flow_finalize(ready, org):
         esvc.save_marks(org.leader, ev.pk, marks)
 
 
-def test_finalize_requires_all_marks(ready, org):
+def test_finalize_unmarked_defaults_to_full(ready, org):
+    """D03: tiêu chí chưa chấm = 100% — finalize không còn bắt chấm đủ."""
     rec = _done_record(org)
     ev, _ = esvc.get_or_create_evaluation(
         org.leader, record_id=rec.pk, subject_user_id=org.o1.pk
     )
-    one = {str(ev.policy_version.criteria.first().pk): 80}
+    criteria = list(ev.policy_version.criteria.all())
+    one = {str(criteria[0].pk): 80}
     esvc.save_marks(org.leader, ev.pk, one, expected_row_version=ev.row_version)
+    snap = esvc.finalize_evaluation(org.leader, ev.pk)
+    # base = 100*(0.6*0.8 + 0.4*1.0) = 88 (tiêu chí 2 mặc định 100)
+    assert snap.base_score == Decimal("88.00")
+
+
+def test_finalize_overdue_open_record_scores_zero(ready, org):
+    """D04: record chưa DONE nhưng trễ tới mức trừ tối đa → chốt được, điểm 0.
+    Chưa tới ngưỡng thì vẫn bị gate OPEN."""
+    rec = make_record(org.leader, org.d1, [org.o1], ref="KPI-OD", days=-12)  # trễ 12 ngày
+    ev, _ = esvc.get_or_create_evaluation(
+        org.leader, record_id=rec.pk, subject_user_id=org.o1.pk
+    )
+    snap = esvc.finalize_evaluation(org.leader, ev.pk)
+    assert snap.final_score == Decimal("0.00")
+    assert snap.late_days == 12
+
+    rec2 = make_record(org.leader, org.d1, [org.o1], ref="KPI-OD2", days=-5)  # trễ 5 < 11
+    ev2, _ = esvc.get_or_create_evaluation(
+        org.leader, record_id=rec2.pk, subject_user_id=org.o1.pk
+    )
     with pytest.raises(ValidationError):
-        esvc.finalize_evaluation(org.leader, ev.pk)
+        esvc.finalize_evaluation(org.leader, ev2.pk)
 
 
 def test_correction_creates_new_revision(ready, org):
