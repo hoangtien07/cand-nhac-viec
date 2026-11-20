@@ -91,7 +91,10 @@ class Command(BaseCommand):
         }
         existing = None
         for cand in family.versions.filter(
-            status=PolicyVersionStatus.DRAFT, max_points=Decimal("15.00"), created_by=actor
+            status=PolicyVersionStatus.DRAFT,
+            max_points=Decimal("15.00"),
+            created_by=actor,
+            combination_strategy=CombinationStrategy.MAX_DEDUCTION,
         ):
             got_bands = {
                 (b.kind, b.min_value, b.max_value, b.deduction_percent)
