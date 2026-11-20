@@ -24,20 +24,33 @@ from apps.records import services
 from apps.records.models import WorkRecord
 from apps.records.timeutils import db_now, local_date
 
-DEPT_NAMES = [f"Tổ Công tác {i} (giả lập)" for i in range(1, 6)]
+# EU-02 (SPEC FEEDBACK V2): 5 tổ đúng danh mục phản ánh, mỗi tổ 1 tài khoản cán bộ.
+DEPT_NAMES = [
+    "Tổ An ninh (giả lập)",
+    "Tổ Tham mưu Tổng hợp (giả lập)",
+    "Tổ Cảnh sát khu vực (giả lập)",
+    "Tổ Cảnh sát Phòng chống tội phạm (giả lập)",
+    "Tổ Cảnh sát trật tự (giả lập)",  # D09: Excel gốc 'trậ tự' — chuẩn hóa chính tả
+]
+OFFICER_NAMES = [
+    "Cán bộ Tổ An ninh (giả lập)",
+    "Cán bộ Tổ Tham mưu Tổng hợp (giả lập)",
+    "Cán bộ Tổ CS khu vực (giả lập)",
+    "Cán bộ Tổ CS PCTP (giả lập)",
+    "Cán bộ Tổ CS trật tự (giả lập)",
+]
 UNITS = {
     "A": ("Công an phường A (giả lập)", DEPT_NAMES),
     "B": ("Đơn vị giả lập B", ["Phòng Nội bộ", "Phòng Hành chính"]),
 }
 # (username, full name, unit, dept index or None, role)
+# EU-02: đúng 2 lãnh đạo nghiệp vụ ở đơn vị A; leader.config/leader.approve chỉ dùng
+# trong fixtures/test — không seed lên DB demo (DB cũ xử lý bằng normalize_demo_accounts).
 ACCOUNTS = [
     ("admin.a", "Quản trị A (giả lập)", "A", None, Role.SYS_ADMIN),
     ("lanhdao.a1", "Lãnh đạo A1 (giả lập)", "A", None, Role.LEADER),
     ("lanhdao.a2", "Lãnh đạo A2 (giả lập)", "A", None, Role.LEADER),
-    # Tách trách nhiệm demo (plan D09): một leader soạn cấu hình + chấm, một leader duyệt + chốt.
-    ("leader.config", "Lãnh đạo cấu hình KPI (giả lập)", "A", None, Role.LEADER),
-    ("leader.approve", "Lãnh đạo phê duyệt KPI (giả lập)", "A", None, Role.LEADER),
-    *[(f"canbo.to{i}", f"Cán bộ Tổ {i} (giả lập)", "A", i - 1, Role.OFFICER) for i in range(1, 6)],
+    *[(f"canbo.to{i}", OFFICER_NAMES[i - 1], "A", i - 1, Role.OFFICER) for i in range(1, 6)],
     ("admin.b", "Quản trị B (giả lập)", "B", None, Role.SYS_ADMIN),
     ("lanhdao.b", "Lãnh đạo B (giả lập)", "B", 0, Role.LEADER),
     ("truongphong.nb", "Trưởng phòng Nội bộ (giả lập)", "B", 0, Role.DEPT_MANAGER),
@@ -102,10 +115,19 @@ class Command(BaseCommand):
 
         granter = u["admin.a"]
         unit = units["A"]
+        # Tách trách nhiệm trên 2 lãnh đạo nghiệp vụ (SPEC V2 D06):
+        # lanhdao.a1 soạn cấu hình + ghi nhắc nhở + chấm; lanhdao.a2 duyệt + chốt + xem.
         for username, caps in (
-            ("leader.config", [KpiCapability.CONFIG_EDIT, KpiCapability.EVALUATE]),
             (
-                "leader.approve",
+                "lanhdao.a1",
+                [
+                    KpiCapability.CONFIG_EDIT,
+                    KpiCapability.REMINDER_ISSUE,
+                    KpiCapability.EVALUATE,
+                ],
+            ),
+            (
+                "lanhdao.a2",
                 [
                     KpiCapability.CONFIG_PUBLISH,
                     KpiCapability.SCORE_FINALIZE,

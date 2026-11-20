@@ -80,5 +80,9 @@ docker compose down -v   # XÓA toàn bộ dữ liệu demo (volume pgdata/appva
 
 - `KPI_ENABLED` (`1/true` bật; mặc định = `DEBUG`): bật phân hệ KPI có cấu hình (ADR-004).
   Tắt → mọi route `/kpi/` trả 404 và không tính/chốt điểm.
-- Seed demo tạo thêm `leader.config` (KPI_CONFIG_EDIT + KPI_EVALUATE) và
-  `leader.approve` (KPI_CONFIG_PUBLISH + KPI_SCORE_FINALIZE + KPI_VIEW_UNIT) ở phường A.
+- Seed demo (SPEC FEEDBACK V2): `lanhdao.a1` (KPI_CONFIG_EDIT + KPI_REMINDER_ISSUE + KPI_EVALUATE)
+  và `lanhdao.a2` (KPI_CONFIG_PUBLISH + KPI_SCORE_FINALIZE + KPI_VIEW_UNIT) ở phường A —
+  đúng 2 lãnh đạo nghiệp vụ. DB cũ đã có `leader.config`/`leader.approve`: chạy
+  `python manage.py normalize_demo_accounts [--deactivate]` để thu hồi grant và (tuỳ chọn) khóa.
+- `python manage.py seed_kpi_draft_15 [--actor lanhdao.a1]`: tạo bản KPI **DRAFT** 15 điểm
+  (đề xuất EU-04; KHÔNG kích hoạt — chờ chốt D01–D04).

@@ -147,9 +147,9 @@ def record_list(request):
         r.row_can_edit = policies.can_edit_record_metadata(user, r)
         r.row_can_submit = policies.can_submit_result(user, r)
         if kpi_cols:
-            r.kpi_eval_label = {
-                "FINALIZED": "Đã chốt", "DRAFT": "Đang đánh giá"
-            }.get(eval_statuses.get(r.pk), "Chưa đánh giá")
+            r.kpi_eval_label = {"FINALIZED": "Đã chốt", "DRAFT": "Đang đánh giá"}.get(
+                eval_statuses.get(r.pk), "Chưa đánh giá"
+            )
             own = own_scores.get(r.pk)
             r.kpi_own_eval_id, r.kpi_own_score = own if own else (None, None)
         r.row_can_archive = policies.can_archive_record(user, r)
@@ -747,12 +747,52 @@ def complete_other_task(request, pk):
 def periodic_plan_list(request):
     user = request.user
     _require_business(user)
+    now = db_now()
     plans = (
-        policies.periodic_plans_queryset(user)
-        .select_related("owner_department")
-        .prefetch_related("periods")
+        policies.periodic_plans_queryset(user).select_related("owner_department").prefetch_related("periods")
     )
-    return render(request, "records/periodic_list.html", {"plans": plans})
+    for p in plans:
+        periods = list(p.periods.all())
+        p.stat_total = len(periods)
+        p.stat_unfinished = sum(1 for r in periods if r.status == RecordStatus.OPEN)
+        p.stat_overdue = sum(1 for r in periods if r.status == RecordStatus.OPEN and r.due_at < now)
+        open_future = [r.due_at for r in periods if r.status == RecordStatus.OPEN]
+        p.stat_next_due = min(open_future) if open_future else None
+    return render(request, "records/periodic_list.html", {"plans": plans, "now": now})
+
+
+@require_GET
+def periodic_overdue_list(request):
+    """EU-07: drill-down các KỲ quá hạn (một hồ sơ con = một kỳ), trong phạm vi
+    quyền xem. ?plan=<uuid> lọc theo một kế hoạch — không tin tham số cho scope."""
+    user = request.user
+    _require_business(user)
+    now = db_now()
+    qs = (
+        overdue(policies.visible_records_queryset(user), now)
+        .filter(periodic_plan__isnull=False)
+        .select_related("periodic_plan", "owner_department")
+        .prefetch_related("assignees__user")
+        .order_by("due_at", "period_index")
+    )
+    plan = None
+    plan_pk = request.GET.get("plan", "").strip()
+    if plan_pk:
+        try:
+            plan = PeriodicPlan.objects.get(pk=plan_pk)
+            policies.require(policies.can_view_plan(user, plan))
+            qs = qs.filter(periodic_plan=plan)
+        except (PeriodicPlan.DoesNotExist, ValidationError):
+            raise Http404 from None
+    periods = attach_state(qs, now)
+    today = local_date(now)
+    for r in periods:
+        r.overdue_days = (today - local_date(r.due_at)).days
+    return render(
+        request,
+        "records/periodic_overdue.html",
+        {"periods": periods, "plan": plan, "now": now},
+    )
 
 
 @require_http_methods(["GET", "POST"])
@@ -807,9 +847,19 @@ def periodic_plan_detail(request, pk):
         .order_by("period_index")
     )
     now = db_now()
+    # EU-07: chip lọc kỳ theo trạng thái (giữ quyền xem phía trên, chỉ lọc hiển thị).
+    period_filter = request.GET.get("ky", "all")
+    if period_filter == "overdue":
+        periods = overdue(periods, now)
+    elif period_filter == "due_soon":
+        periods = due_soon(periods, now)
+    elif period_filter == "done":
+        periods = periods.filter(status=RecordStatus.DONE)
+    else:
+        period_filter = "all"
     attach_state(periods, now)
     return render(
         request,
         "records/periodic_detail.html",
-        {"plan": plan, "periods": periods, "now": now},
+        {"plan": plan, "periods": periods, "period_filter": period_filter, "now": now},
     )

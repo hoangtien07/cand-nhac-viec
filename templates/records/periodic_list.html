@@ -1,22 +1,27 @@
 {% extends "base.html" %}{% block title %}Văn bản định kỳ{% endblock %}
 {% block content %}
-<div class="flex flex-wrap items-center gap-3 mb-4"><div><h1 class="text-2xl font-bold">Văn bản định kỳ</h1><p class="dt">Kế hoạch định kỳ trong phạm vi bạn được xem. Mỗi kế hoạch gồm 1–12 kỳ.</p></div>
+<div class="flex flex-wrap items-center gap-3 mb-4"><div><h1 class="text-2xl font-bold">Công tác tham mưu, xử lý văn bản</h1><p class="dt">Kế hoạch định kỳ trong phạm vi bạn được xem. Mỗi kế hoạch gồm 1–12 kỳ.</p></div>
   <a class="btn-primary ml-auto" href="{% url 'records:periodic_create' %}">+ Tạo kế hoạch định kỳ</a></div>
+{% include "records/_record_tabs.html" with record_tab="dinhky" %}
 <section class="card p-0 overflow-x-auto">
   <table class="w-full text-left">
-    <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Tên</th><th class="px-4 py-2">Loại</th><th class="px-4 py-2">Số hiệu</th><th class="px-4 py-2">Năm</th><th class="px-4 py-2">Phòng</th><th class="px-4 py-2">Số kỳ</th><th class="px-4 py-2">Trạng thái</th></tr></thead>
+    <thead class="bg-slate-100 text-sm"><tr>
+      <th class="px-4 py-2">Tên</th><th class="px-4 py-2">Số hiệu</th><th class="px-4 py-2">Năm</th><th class="px-4 py-2">Tổ/phòng</th>
+      <th class="px-4 py-2">Số kỳ</th><th class="px-4 py-2">Kỳ chưa HT</th><th class="px-4 py-2">Kỳ quá hạn</th><th class="px-4 py-2">Hạn sắp tới</th>
+    </tr></thead>
     <tbody class="divide-y">
     {% for p in plans %}
       <tr>
         <td class="px-4 py-2"><a class="link" href="{% url 'records:periodic_detail' p.pk %}">{{ p.name }}</a></td>
-        <td class="px-4 py-2">{{ p.get_task_kind_display }}</td>
         <td class="px-4 py-2">{{ p.reference_no|default:"—" }}</td>
         <td class="px-4 py-2">{{ p.year }}</td>
         <td class="px-4 py-2">{{ p.owner_department.name }}</td>
-        <td class="px-4 py-2">{{ p.periods.all|length }}</td>
-        <td class="px-4 py-2">{{ p.get_status_display }}</td>
+        <td class="px-4 py-2">{{ p.stat_total }}</td>
+        <td class="px-4 py-2">{{ p.stat_unfinished }}</td>
+        <td class="px-4 py-2">{% if p.stat_overdue %}<a class="link font-semibold text-red-700" href="{% url 'records:periodic_overdue' %}?plan={{ p.pk }}">{{ p.stat_overdue }} kỳ quá hạn</a>{% else %}0{% endif %}</td>
+        <td class="px-4 py-2">{{ p.stat_next_due|date:"d/m/Y"|default:"—" }}</td>
       </tr>
-    {% empty %}<tr><td colspan="7" class="px-4 py-6 text-center text-slate-500">Chưa có kế hoạch định kỳ nào.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="8" class="px-4 py-6 text-center text-slate-500">Chưa có kế hoạch định kỳ nào.</td></tr>{% endfor %}
     </tbody>
   </table>
 </section>

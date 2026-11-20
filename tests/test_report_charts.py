@@ -47,7 +47,9 @@ def test_status_buckets_are_mutually_exclusive(org, client_for):
 
     res = client_for(org.leader).get("/bao-cao/")
     data = _json_script(res.content.decode(), "report-charts-data")
-    assert sum(data["status"]["counts"]) == res.context["totals"]["total"]
+    # EU-05: biểu đồ chỉ còn 3 nhóm cần chú ý; không còn bucket "Đang xử lý".
+    assert data["status"]["labels"] == ["Đã hoàn thành", "Quá hạn", "Sắp đến hạn"]
+    assert data["status"]["counts"] == [1, 1, 0]
     assert res.context["totals"]["total"] == 3
 
 
@@ -80,7 +82,8 @@ def test_officer_report_scope_unchanged(org, client_for):
     data = _json_script(res.content.decode(), "report-charts-data")
     # o1 only participates in RPT-O1; folder grants/shares do not widen report scope
     assert res.context["totals"]["total"] == 1
-    assert sum(data["status"]["counts"]) == 1
+    # EU-05: hồ sơ đang xử lý chưa đến hạn không nằm trong 3 nhóm cần chú ý.
+    assert sum(data["status"]["counts"]) == 0
 
 
 @pytest.mark.django_db
