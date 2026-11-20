@@ -251,6 +251,42 @@ def test_expected_scores_at_full_achievement_15(org):
         assert got == Decimal(score)
 
 
+def test_seed_kpi_draft_15_idempotent_after_family_rename(org):
+    """Review PR #8: draft khác đổi family.name thì chạy lại seed vẫn bỏ qua,
+    không tạo trùng đề xuất 15đ."""
+    from decimal import Decimal
+
+    from django.core.management import call_command
+
+    from apps.kpi import services as ksvc
+    from apps.kpi.capabilities import KpiCapability
+    from apps.kpi.models import GrantScope, KpiCapabilityGrant, KpiPolicyFamily, PolicyVersionStatus
+
+    KpiCapabilityGrant.objects.create(
+        unit=org.ua,
+        user=org.leader,
+        capability=KpiCapability.CONFIG_EDIT,
+        scope=GrantScope.UNIT,
+        granted_by=org.admin,
+        reason="t",
+    )
+    # family phải tồn tại (command yêu cầu); tạo sẵn bằng một draft bất kỳ.
+    ksvc.create_draft(
+        org.leader, task_kind="DOCUMENT", name="Gốc", max_points=Decimal("10.00"),
+        combination_strategy="CAPPED_ADDITIVE",
+    )
+    call_command("seed_kpi_draft_15", actor=org.leader.username)
+    family = KpiPolicyFamily.objects.get(unit=org.ua, task_kind="DOCUMENT")
+    # Người dùng soạn draft khác → family.name bị đổi (create_draft ghi đè tên).
+    ksvc.create_draft(
+        org.leader, task_kind="DOCUMENT", name="Tên khác", max_points=Decimal("8.00"),
+        combination_strategy="CAPPED_ADDITIVE",
+    )
+    call_command("seed_kpi_draft_15", actor=org.leader.username)  # phải bỏ qua
+    drafts = family.versions.filter(status=PolicyVersionStatus.DRAFT, max_points=Decimal("15.00"))
+    assert drafts.count() == 1
+
+
 # --- EU-02: migration đổi tên 5 tổ idempotent (AC-02.1, T-06) ---
 
 
