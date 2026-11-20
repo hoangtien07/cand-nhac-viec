@@ -163,9 +163,12 @@ def finalize_evaluation(actor, evaluation_id, expected_row_version=None):
         raise ValidationError(
             "Cấu hình KPI của đánh giá không còn ACTIVE — tạo đánh giá mới với phiên bản hiệu lực."
         )
-    # Khóa luôn hàng WorkRecord: due_at có thể bị sửa (gia hạn) song song —
-    # nếu không khóa, điểm chốt có thể tính trên hạn cũ.
+    # Khóa luôn hàng WorkRecord: due_at có thể bị sửa (gia hạn) hay record được nộp
+    # song song — nếu không khóa, điểm chốt có thể tính trên hạn/trạng thái cũ.
+    # Gán bản đã khóa vào evaluation.record để score_preview dùng đúng dữ liệu
+    # tươi (select_related tải trước khi khóa → không đáng tin).
     record = WorkRecord.objects.select_for_update().get(pk=evaluation.record_id)
+    evaluation.record = record
     if record.archived_at is not None:
         raise ValidationError("Không chốt điểm cho hồ sơ đã lưu trữ.")
     now = db_now()
