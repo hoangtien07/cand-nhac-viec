@@ -34,7 +34,7 @@ from .models import (
     PolicyVersionStatus,
 )
 from .reminder_services import valid_reminder_count
-from .scoring import band_deduction, compute_score
+from .scoring import compute_score, matching_band
 
 
 def _evaluation_in_unit(user, evaluation_id):
@@ -163,15 +163,20 @@ def finalize_evaluation(actor, evaluation_id, expected_row_version=None):
         raise ValidationError(
             "Cấu hình KPI của đánh giá không còn ACTIVE — tạo đánh giá mới với phiên bản hiệu lực."
         )
-    record = evaluation.record
+    # Khóa luôn hàng WorkRecord: due_at có thể bị sửa (gia hạn) song song —
+    # nếu không khóa, điểm chốt có thể tính trên hạn cũ.
+    record = WorkRecord.objects.select_for_update().get(pk=evaluation.record_id)
+    if record.archived_at is not None:
+        raise ValidationError("Không chốt điểm cho hồ sơ đã lưu trữ.")
     now = db_now()
     if record.status != RecordStatus.DONE:
-        # D04: chỉ được chốt trước khi DONE khi số ngày trễ đã chạm dải trừ tối đa
-        # (điểm chắc chắn = 0). Còn lại giữ gate OPEN như WP5.
-        late_pct = band_deduction(
+        # D04: chỉ được chốt trước khi DONE khi đã vào DẢI CUỐI của LATE_DAYS
+        # (dải mở vô hạn, trừ tối đa) — chặn trường hợp cấu hình có dải 100% ở
+        # ngày 0 hay dải cuối trừ thấp hơn khiến chốt 0 sớm/sai.
+        band = matching_band(
             evaluation.policy_version, PenaltyBandKind.LATE_DAYS, late_days_of(record, now)
         )
-        if late_pct < Decimal("100"):
+        if not (band and band.max_value is None and band.deduction_percent >= Decimal("100")):
             raise ValidationError(
                 "Chỉ chốt điểm khi nhiệm vụ hoàn thành hoặc đã quá hạn tới mức trừ tối đa (điểm 0)."
             )
