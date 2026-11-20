@@ -17,6 +17,8 @@ def report_summary(user, now, year=None):
     qs = policies.report_records_queryset(user)
     if year is not None:
         qs = filter_created_in_work_year(qs, year)
+    # EU-05: không render thẻ/cột/bucket "Đang xử lý"; khóa `open` vẫn được tính
+    # (RecordStatus.OPEN tồn tại trong DB và vẫn điều khiển quá hạn).
     agg = dict(
         open=Count("id", distinct=True, filter=Q(status=RecordStatus.OPEN)),
         done=Count("id", distinct=True, filter=Q(status=RecordStatus.DONE)),
@@ -68,10 +70,6 @@ def report_charts(qs, now, year):
         (
             "Sắp đến hạn",
             qs.filter(status=RecordStatus.OPEN, due_at__gte=now, due_at__lt=cutoff).count(),
-        ),
-        (
-            "Đang xử lý",
-            qs.filter(status=RecordStatus.OPEN, due_at__gte=cutoff).count(),
         ),
     ]
 
@@ -153,8 +151,7 @@ def kpi_stats(user):
     own = kq.my_finalized_evaluations(user)
     if own:
         total = sum(s.final_score for _e, s in own)
-        return {"kind": "own", "n": len(own),
-                "avg": (total / len(own)).quantize(Decimal("0.01"))}
+        return {"kind": "own", "n": len(own), "avg": (total / len(own)).quantize(Decimal("0.01"))}
     return {"kind": "own", "n": 0, "avg": None}
 
 

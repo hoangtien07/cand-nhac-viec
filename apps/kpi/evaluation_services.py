@@ -3,8 +3,9 @@
 - Evaluation pinned to the ACTIVE policy version at creation (MVP: version locked
   per record; §5.1 notes plan-period locking as a decided alternative).
 - Finalize requires: KPI_SCORE_FINALIZE grant on the record's department scope,
-  policy still ACTIVE (§0: scoring only under ACTIVE config), marks complete,
-  record DONE (OPEN stays draft/preview — WP5 gate).
+  policy still ACTIVE (§0: scoring only under ACTIVE config); D03 — tiêu chí chưa
+  chấm mặc định 100%; record DONE, hoặc record đã quá hạn tới mức trừ tối đa của dải LATE_DAYS
+  (D04 — chốt 0 mà không chờ nộp; vẫn giữ pin ACTIVE + khóa hàng).
 - Optimistic concurrency via row_version; finalize is idempotent (double POST
   returns the existing snapshot).
 - Corrections are append-only: new snapshot revision + KpiScoreCorrection row;
@@ -29,10 +30,11 @@ from .models import (
     KpiPolicyVersion,
     KpiScoreCorrection,
     KpiScoreSnapshot,
+    PenaltyBandKind,
     PolicyVersionStatus,
 )
 from .reminder_services import valid_reminder_count
-from .scoring import compute_score
+from .scoring import compute_score, matching_band
 
 
 def _evaluation_in_unit(user, evaluation_id):
@@ -52,10 +54,10 @@ def active_policy_version(unit_id, task_kind):
 
 
 def late_days_of(record, cutoff=None):
-    """VN-local late days vs due_at; 0 when on/before deadline or not completed."""
-    if not record.completed_at:
-        return 0
-    delta = local_date(record.completed_at) - local_date(record.due_at)
+    """VN-local late days vs due_at: tới completed_at, hoặc tới cutoff/hiện tại khi
+    chưa nộp (D04 — record chưa DONE vẫn tích trễ hạn). 0 khi còn trong hạn."""
+    end = record.completed_at or cutoff or db_now()
+    delta = local_date(end) - local_date(record.due_at)
     return max(0, delta.days)
 
 
@@ -161,15 +163,28 @@ def finalize_evaluation(actor, evaluation_id, expected_row_version=None):
         raise ValidationError(
             "Cấu hình KPI của đánh giá không còn ACTIVE — tạo đánh giá mới với phiên bản hiệu lực."
         )
-    record = evaluation.record
-    if record.status != RecordStatus.DONE:
-        raise ValidationError("Chỉ chốt điểm khi nhiệm vụ đã hoàn thành (WP5 gate).")
-    criteria = list(evaluation.policy_version.criteria.all())
-    marked = {str(m.criterion_id) for m in evaluation.marks.all()}
-    missing = [c.code for c in criteria if str(c.pk) not in marked]
-    if missing:
-        raise ValidationError(f"Chưa chấm đủ tiêu chí: {', '.join(missing)}.")
+    # Khóa luôn hàng WorkRecord: due_at có thể bị sửa (gia hạn) hay record được nộp
+    # song song — nếu không khóa, điểm chốt có thể tính trên hạn/trạng thái cũ.
+    # Gán bản đã khóa vào evaluation.record để score_preview dùng đúng dữ liệu
+    # tươi (select_related tải trước khi khóa → không đáng tin).
+    record = WorkRecord.objects.select_for_update().get(pk=evaluation.record_id)
+    evaluation.record = record
+    if record.archived_at is not None:
+        raise ValidationError("Không chốt điểm cho hồ sơ đã lưu trữ.")
     now = db_now()
+    if record.status != RecordStatus.DONE:
+        # D04: chỉ được chốt trước khi DONE khi đã vào DẢI CUỐI của LATE_DAYS
+        # (dải mở vô hạn, trừ tối đa) — chặn trường hợp cấu hình có dải 100% ở
+        # ngày 0 hay dải cuối trừ thấp hơn khiến chốt 0 sớm/sai.
+        band = matching_band(
+            evaluation.policy_version, PenaltyBandKind.LATE_DAYS, late_days_of(record, now)
+        )
+        if not (band and band.max_value is None and band.deduction_percent >= Decimal("100")):
+            raise ValidationError(
+                "Chỉ chốt điểm khi nhiệm vụ hoàn thành hoặc đã quá hạn tới mức trừ tối đa (điểm 0)."
+            )
+    # D03: tiêu chí chưa chấm mặc định 100% (mặc định tròn điểm rồi trừ lỗi) —
+    # không bắt buộc chấm đủ trước khi finalize.
     result = score_preview(evaluation, cutoff=now)
     snapshot = KpiScoreSnapshot.objects.create(
         evaluation=evaluation, revision=1,

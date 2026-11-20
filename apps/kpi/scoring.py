@@ -41,14 +41,13 @@ def apply_strategy(base_score, late_pct, reminder_pct, strategy, max_points):
 
 
 def compute_score(version, achievements, late_days, reminder_count, strategy=None):
-    """achievements: {criterion_id: Decimal(0..100)}. Returns a plain dict (no DB writes)."""
+    """achievements: {criterion_id: Decimal(0..100)}. Returns a plain dict (no DB writes).
+    D03: tiêu chí chưa chấm mặc định 100% — nhiệm vụ mặc định tròn điểm rồi trừ lỗi."""
     strategy = strategy or version.combination_strategy
     base = D("0")
     for crit in version.criteria.all():
         a = achievements.get(str(crit.pk), achievements.get(crit.pk))
-        if a is None:
-            continue
-        base += D(crit.weight_percent) / PCT * D(str(a)) / PCT
+        base += D(crit.weight_percent) / PCT * D(str(a if a is not None else PCT)) / PCT
     base_score = (version.max_points * base)
     late_pct = band_deduction(version, PenaltyBandKind.LATE_DAYS, late_days)
     rem_pct = band_deduction(version, PenaltyBandKind.REMINDER_COUNT, reminder_count)

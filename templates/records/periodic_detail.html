@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% block title %}{{ plan.name }}{% endblock %}
 {% block content %}
-<nav class="text-sm mb-2"><a class="link" href="{% url 'records:periodic_list' %}">← Văn bản định kỳ</a></nav>
+<nav class="text-sm mb-2" aria-label="Breadcrumb"><a class="link" href="{% url 'records:list' %}">Công tác tham mưu</a> / <a class="link" href="{% url 'records:periodic_list' %}">Văn bản định kỳ</a> / {{ plan.name }}</nav>
 <section class="card mb-4">
   <h1 class="text-2xl font-bold">{{ plan.name }}</h1>
   <dl class="grid sm:grid-cols-2 gap-x-6 gap-y-2 mt-3">
@@ -12,6 +12,12 @@
     <div><dt class="dt">Người tạo</dt><dd>{{ plan.created_by.full_name }}</dd></div>
   </dl>
 </section>
+<nav class="po-tabs mb-4" aria-label="Lọc kỳ">
+  <a href="{% url 'records:periodic_detail' plan.pk %}?ky=all"{% if period_filter == 'all' %} aria-current="true"{% endif %}>Tất cả</a>
+  <a href="{% url 'records:periodic_detail' plan.pk %}?ky=overdue"{% if period_filter == 'overdue' %} aria-current="true"{% endif %}>Quá hạn</a>
+  <a href="{% url 'records:periodic_detail' plan.pk %}?ky=due_soon"{% if period_filter == 'due_soon' %} aria-current="true"{% endif %}>Sắp hạn</a>
+  <a href="{% url 'records:periodic_detail' plan.pk %}?ky=done"{% if period_filter == 'done' %} aria-current="true"{% endif %}>Hoàn thành</a>
+</nav>
 <section class="card p-0 overflow-x-auto" aria-labelledby="h-periods"><h2 id="h-periods" class="section-h">Các kỳ ({{ periods|length }})</h2>
   <table class="w-full text-left">
     <thead class="bg-slate-100 text-sm"><tr><th class="px-4 py-2">Kỳ</th><th class="px-4 py-2">Số hiệu</th><th class="px-4 py-2">Hạn xử lý</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2">Người xử lý</th><th class="px-4 py-2">Kết quả</th></tr></thead>

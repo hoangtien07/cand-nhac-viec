@@ -1,0 +1,5 @@
+{# EU-01: Công tác tham mưu gồm 2 tab — văn bản thường và định kỳ. #}
+<nav class="po-tabs mb-4" aria-label="Loại công việc">
+  <a href="{% url 'records:list' %}"{% if record_tab == 'thuong' %} aria-current="true"{% endif %}>Văn bản thường</a>
+  <a href="{% url 'records:periodic_list' %}"{% if record_tab == 'dinhky' %} aria-current="true"{% endif %}>Văn bản định kỳ</a>
+</nav>

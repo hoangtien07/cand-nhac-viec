@@ -21,6 +21,7 @@ urlpatterns = [
     path("<uuid:pk>/ket-qua/<uuid:result_id>/dinh-chinh/", views.correct_result, name="correct"),
     path("<uuid:pk>/ket-qua/<uuid:result_id>/huy/", views.revoke_result, name="revoke"),
     path("dinh-ky/", views.periodic_plan_list, name="periodic_list"),
+    path("dinh-ky/qua-han/", views.periodic_overdue_list, name="periodic_overdue"),
     path("dinh-ky/tao/", views.periodic_plan_create, name="periodic_create"),
     path("dinh-ky/<uuid:pk>/", views.periodic_plan_detail, name="periodic_detail"),
     path("<uuid:pk>/hoan-thanh/", views.complete_other_task, name="complete_other"),

@@ -8,9 +8,11 @@ from .ui_state import get_active_work_year, work_year_choices
 _NAV = {
     "dashboard": "home",
     "records:create": "create",
-    "records:periodic_list": "periodic",
-    "records:periodic_create": "periodic",
-    "records:periodic_detail": "periodic",
+    # EU-01: trang định kỳ là tab con của "Công tác tham mưu" — cùng active key.
+    "records:periodic_list": "records",
+    "records:periodic_create": "records",
+    "records:periodic_detail": "records",
+    "records:periodic_overdue": "records",
     "records": "records",
     "folders": "folders",
     "reports": "reports",

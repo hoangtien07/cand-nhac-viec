@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Kỳ quá hạn{% endblock %}
+{% block content %}
+<nav class="text-sm mb-2"><a class="link" href="{% url 'records:periodic_list' %}">← Văn bản định kỳ</a></nav>
+<div class="flex flex-wrap items-center gap-3 mb-4"><div>
+  <h1 class="text-2xl font-bold">Kỳ định kỳ quá hạn{% if plan %} — {{ plan.name }}{% endif %}</h1>
+  <p class="dt">Các kỳ chưa hoàn thành đã quá hạn xử lý, trong phạm vi bạn được xem.</p>
+</div></div>
+<section class="card p-0 overflow-x-auto">
+  <table class="w-full text-left">
+    <thead class="bg-slate-100 text-sm"><tr>
+      <th class="px-4 py-2">Tên văn bản</th><th class="px-4 py-2">Số hiệu</th><th class="px-4 py-2">Kỳ</th>
+      <th class="px-4 py-2">Tổ/phòng</th><th class="px-4 py-2">Người xử lý</th>
+      <th class="px-4 py-2">Hạn</th><th class="px-4 py-2">Quá hạn</th><th class="px-4 py-2">Trạng thái</th><th class="px-4 py-2"></th>
+    </tr></thead>
+    <tbody class="divide-y">
+    {% for r in periods %}
+      <tr>
+        <td class="px-4 py-2">{% if r.periodic_plan %}<a class="link" href="{% url 'records:periodic_detail' r.periodic_plan_id %}">{{ r.periodic_plan.name }}</a>{% else %}{{ r.title }}{% endif %}</td>
+        <td class="px-4 py-2">{{ r.reference_no|default:"—" }}</td>
+        <td class="px-4 py-2 font-semibold">Kỳ {{ r.period_index }}</td>
+        <td class="px-4 py-2">{{ r.owner_department.name }}</td>
+        <td class="px-4 py-2">{% for a in r.assignees.all %}{% if a.is_active %}{{ a.user.full_name }}{% if not forloop.last %}, {% endif %}{% endif %}{% endfor %}</td>
+        <td class="px-4 py-2">{{ r.due_at|date:"d/m/Y" }}</td>
+        <td class="px-4 py-2">{{ r.overdue_days }} ngày</td>
+        <td class="px-4 py-2">{% include "records/_state_badge.html" with r=r %}</td>
+        <td class="px-4 py-2"><a class="link" href="{% url 'records:detail' r.pk %}">Xem công việc</a></td>
+      </tr>
+    {% empty %}<tr><td colspan="9" class="px-4 py-6 text-center text-slate-500">Không có kỳ nào quá hạn.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,6 +1,6 @@
 <li class="po-notif-item{% if not n.read_at %} is-unread{% endif %}" data-testid="notification-item">
   <span class="badge {% if n.type == 'OVERDUE' %}badge-overdue{% elif n.type == 'DUE_TODAY' %}badge-soon{% else %}badge-open{% endif %}">{{ n.get_type_display }}</span>
-  <a href="{% url 'records:detail' n.record_id %}">{{ n.record.reference_no }}</a>
+  <a href="{% url 'records:detail' n.record_id %}">{{ n.record.display_name }}</a>
   {% if not n.read_at %}<form method="post" action="{% url 'notifications:mark_read' n.pk %}" hx-post="{% url 'notifications:mark_read' n.pk %}" hx-target="closest li" hx-swap="outerHTML">{% csrf_token %}<button>Đã đọc</button></form>{% else %}<span></span>{% endif %}
   <span class="po-notif-meta">{{ n.record.owner_department.name }} · hạn {{ n.record.due_at|date:"d/m/Y" }} · {{ n.created_at|date:"d/m H:i" }}{% if n.resolved_at %} · đã giải quyết{% endif %}</span>
 </li>

@@ -18,7 +18,26 @@ from .context_processors import initials
 from .models import RecordAssignee, RecordStatus, ResultReference, WorkRecord
 from .queries import attach_state, deadline_state, due_soon, due_soon_cutoff, overdue
 from .timeutils import VN_TZ, local_date
-from .ui_state import filter_created_in_work_year, work_year_bounds
+from .ui_state import work_year_bounds
+
+
+def _work_year_filter(year):
+    """EU-06: hồ sơ thường lọc theo năm tạo; kỳ định kỳ lọc theo
+    `periodic_plan.year` (kế hoạch năm N+1 có thể được tạo trong năm N)."""
+    start, end = work_year_bounds(year)
+    return Q(periodic_plan__isnull=True, created_at__gte=start, created_at__lt=end) | Q(
+        periodic_plan__year=year
+    )
+
+
+def _record_work_year_filter(year):
+    start, end = work_year_bounds(year)
+    return Q(
+        record__periodic_plan__isnull=True,
+        record__created_at__gte=start,
+        record__created_at__lt=end,
+    ) | Q(record__periodic_plan__year=year)
+
 
 # STT1: 'Đang xử lý' tab/card removed from the UI; OPEN still exists in the DB and
 # still drives overdue computation (RECORD_STATUS unchanged).
@@ -36,7 +55,7 @@ def assigned_records(user, year):
     scoped = policies.visible_records_queryset(user).filter(
         assignees__user=user, assignees__is_active=True, archived_at__isnull=True
     )
-    scoped = filter_created_in_work_year(scoped, year)
+    scoped = scoped.filter(_work_year_filter(year))
     return WorkRecord.objects.filter(pk__in=scoped.values("pk"))
 
 
@@ -174,11 +193,10 @@ def _reminder_phrase(record, today):
 
 def reminders_for(user, year, now, limit=3):
     """Actionable in-web reminders of THIS recipient, still-visible records only, one per record."""
-    start, end = work_year_bounds(year)
     qs = (
         actionable(visible_notifications(user))
-        .filter(record__created_at__gte=start, record__created_at__lt=end)
-        .select_related("record")
+        .filter(_record_work_year_filter(year))
+        .select_related("record__periodic_plan", "record__owner_department")
         .order_by("-created_at", "pk")
     )
     today = local_date(now)
