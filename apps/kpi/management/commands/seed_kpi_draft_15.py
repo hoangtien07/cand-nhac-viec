@@ -82,11 +82,23 @@ class Command(BaseCommand):
         family = KpiPolicyFamily.objects.filter(unit_id=actor.unit_id, task_kind=TaskKind.DOCUMENT).first()
         if family is None:
             raise CommandError("Chưa có family KPI DOCUMENT — seed/publish cấu hình gốc trước.")
-        # Idempotent: create_draft có thể đổi family.name theo draft khác, nên
-        # nhận diện đề xuất theo DRAFT 15đ do chính actor seed tạo.
-        existing = family.versions.filter(
+        # Idempotent: create_draft có thể đổi family.name theo draft khác, và actor
+        # có thể tự soạn draft 15đ khác — chỉ bỏ qua khi draft của actor đã mang đúng
+        # bộ dải trừ của đề xuất (so theo kind/min/max/deduction).
+        want_bands = {
+            (b["kind"], b["min_value"], b["max_value"], b["deduction_percent"]) for b in BANDS
+        }
+        existing = None
+        for cand in family.versions.filter(
             status=PolicyVersionStatus.DRAFT, max_points=Decimal("15.00"), created_by=actor
-        ).first()
+        ):
+            got_bands = {
+                (b.kind, b.min_value, b.max_value, b.deduction_percent)
+                for b in cand.penalty_bands.all()
+            }
+            if got_bands == want_bands:
+                existing = cand
+                break
         if existing:
             self.stdout.write(f"Đã có DRAFT v{existing.version} «{NAME}» — bỏ qua.")
             return

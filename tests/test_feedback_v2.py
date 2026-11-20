@@ -287,6 +287,55 @@ def test_seed_kpi_draft_15_idempotent_after_family_rename(org):
     assert drafts.count() == 1
 
 
+def test_seed_kpi_draft_15_not_confused_by_manual_15_draft(org):
+    """Draft 15đ do actor tự soạn (dải trừ khác) không bị nhận nhầm là đề xuất —
+    seed vẫn tạo bản đề xuất với đúng BANDS."""
+    from decimal import Decimal
+
+    from django.core.management import call_command
+
+    from apps.kpi import services as ksvc
+    from apps.kpi.capabilities import KpiCapability
+    from apps.kpi.management.commands.seed_kpi_draft_15 import BANDS
+    from apps.kpi.models import (
+        GrantScope,
+        KpiCapabilityGrant,
+        KpiPolicyFamily,
+        PolicyVersionStatus,
+    )
+
+    KpiCapabilityGrant.objects.create(
+        unit=org.ua,
+        user=org.leader,
+        capability=KpiCapability.CONFIG_EDIT,
+        scope=GrantScope.UNIT,
+        granted_by=org.admin,
+        reason="t",
+    )
+    manual = ksvc.create_draft(
+        org.leader, task_kind="DOCUMENT", name="Draft tay 15đ", max_points=Decimal("15.00"),
+        combination_strategy="CAPPED_ADDITIVE",
+    )
+    ksvc.replace_penalty_bands(
+        org.leader,
+        manual.pk,
+        [
+            {
+                "kind": "LATE_DAYS",
+                "min_value": 0,
+                "max_value": None,
+                "deduction_percent": Decimal("10"),
+            }
+        ],
+    )
+    call_command("seed_kpi_draft_15", actor=org.leader.username)
+    family = KpiPolicyFamily.objects.get(unit=org.ua, task_kind="DOCUMENT")
+    drafts = family.versions.filter(status=PolicyVersionStatus.DRAFT, max_points=Decimal("15.00"))
+    assert drafts.count() == 2
+    proposal = drafts.exclude(pk=manual.pk).get()
+    assert proposal.penalty_bands.count() == len(BANDS)
+
+
 # --- EU-02: migration đổi tên 5 tổ idempotent (AC-02.1, T-06) ---
 
 
