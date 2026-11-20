@@ -25,6 +25,9 @@ def forwards(apps, schema_editor):
     if unit is None:
         return
     for old, new in RENAME.items():
+        # Va chạm: tên đích đã tồn tại trong unit → bỏ qua (unique(unit, name)).
+        if Department.objects.filter(unit=unit, name=new).exists():
+            continue
         Department.objects.filter(unit=unit, name=old).update(name=new)
 
 
@@ -35,6 +38,8 @@ def backwards(apps, schema_editor):
     if unit is None:
         return
     for old, new in RENAME.items():
+        if Department.objects.filter(unit=unit, name=old).exists():
+            continue
         Department.objects.filter(unit=unit, name=new).update(name=old)
 
 

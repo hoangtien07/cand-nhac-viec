@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -748,8 +748,13 @@ def periodic_plan_list(request):
     user = request.user
     _require_business(user)
     now = db_now()
+    # SEC: thống kê chỉ tính các kỳ user được xem (và chưa lưu trữ) — không để
+    # số liệu plan rò rỉ hạn/trạng thái của các kỳ ngoài phạm vi.
+    visible_periods = policies.visible_records_queryset(user).filter(archived_at__isnull=True)
     plans = (
-        policies.periodic_plans_queryset(user).select_related("owner_department").prefetch_related("periods")
+        policies.periodic_plans_queryset(user)
+        .select_related("owner_department")
+        .prefetch_related(Prefetch("periods", queryset=visible_periods))
     )
     for p in plans:
         periods = list(p.periods.all())
@@ -770,7 +775,7 @@ def periodic_overdue_list(request):
     now = db_now()
     qs = (
         overdue(policies.visible_records_queryset(user), now)
-        .filter(periodic_plan__isnull=False)
+        .filter(periodic_plan__isnull=False, archived_at__isnull=True)
         .select_related("periodic_plan", "owner_department")
         .prefetch_related("assignees__user")
         .order_by("due_at", "period_index")
@@ -841,7 +846,7 @@ def periodic_plan_detail(request, pk):
     policies.require(policies.can_view_plan(user, plan))
     periods = (
         policies.visible_records_queryset(user)
-        .filter(periodic_plan=plan)
+        .filter(periodic_plan=plan, archived_at__isnull=True)
         .select_related("owner_department")
         .prefetch_related("assignees__user", "results")
         .order_by("period_index")

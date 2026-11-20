@@ -14,6 +14,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.audit.models import AuditAction
+from apps.audit.services import audit_append
 from apps.kpi.capabilities import KpiCapability
 from apps.kpi.models import GrantScope, KpiCapabilityGrant
 from apps.organization.models import Unit
@@ -56,12 +58,27 @@ class Command(BaseCommand):
                 user = User.objects.filter(username=username, unit=unit).first()
                 if user is None:
                     continue
+                # SEC: ghi audit giống grant_views — không cấp/thu hồi quyền âm thầm.
+                for g in KpiCapabilityGrant.objects.filter(
+                    unit=unit, user=user, revoked_at__isnull=True
+                ):
+                    audit_append(
+                        AuditAction.KPI_PERMISSION_REVOKED,
+                        unit=unit, actor=admin,
+                        target_user=str(user.pk), capability=g.capability,
+                        reason="EU-02 normalize_demo_accounts",
+                    )
                 revoked = KpiCapabilityGrant.objects.filter(
                     unit=unit, user=user, revoked_at__isnull=True
                 ).update(revoked_at=timezone.now())
                 if opts["deactivate"] and user.is_active:
                     user.is_active = False
                     user.save(update_fields=["is_active"])
+                    audit_append(
+                        AuditAction.USER_CHANGED, unit=unit, actor=admin,
+                        target_user=str(user.pk), change="is_active=False",
+                        reason="EU-02 khóa tài khoản test",
+                    )
                 self.stdout.write(f"  {username}: thu hồi {revoked} grant"
                                   + (", đã khóa" if opts["deactivate"] else ""))
             created = 0
@@ -80,4 +97,13 @@ class Command(BaseCommand):
                         },
                     )
                     created += int(was)
+                    if was:
+                        audit_append(
+                            AuditAction.KPI_PERMISSION_GRANTED,
+                            unit=unit,
+                            actor=admin,
+                            target_user=str(user.pk),
+                            capability=cap,
+                            scope=GrantScope.UNIT,
+                        )
         self.stdout.write(self.style.SUCCESS(f"Xong: {created} grant mới."))

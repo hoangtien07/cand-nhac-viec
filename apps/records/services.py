@@ -158,8 +158,8 @@ def create_periodic_plan(
     assignees = _validate_users(policies.assignable_users(actor, owner_department), assignees, "Người xử lý")
     if not assignees:
         raise ValidationError("Cần chọn ít nhất một người xử lý.")
-    task_code = (task_code or "").strip()[:64]
-    # EU-03: mỗi kỳ một mã duy nhất (ràng buộc unique(unit, task_code) với mã
+    # Cắt 60 để hậu tố ".Knn" (4 ký tự) không vượt max_length=64 của task_code.
+    task_code = (task_code or "").strip()[:60]
     # không rỗng). Kiểm tra va chạm trước để form trả lỗi 400 thay vì 500.
     child_codes = [f"{task_code}.K{idx:02d}" if task_code else "" for idx in range(1, len(dates) + 1)]
     if task_code and WorkRecord.objects.filter(unit_id=actor.unit_id, task_code__in=child_codes).exists():

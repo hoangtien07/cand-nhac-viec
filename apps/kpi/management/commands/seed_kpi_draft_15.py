@@ -82,9 +82,12 @@ class Command(BaseCommand):
         family = KpiPolicyFamily.objects.filter(unit_id=actor.unit_id, task_kind=TaskKind.DOCUMENT).first()
         if family is None:
             raise CommandError("Chưa có family KPI DOCUMENT — seed/publish cấu hình gốc trước.")
-        existing = family.versions.filter(
-            status=PolicyVersionStatus.DRAFT, name=NAME, max_points=Decimal("15.00")
-        ).first()
+        # name nằm trên family, không phải version — kiểm theo family.name + max_points.
+        existing = (
+            family.versions.filter(status=PolicyVersionStatus.DRAFT, max_points=Decimal("15.00")).first()
+            if family.name == NAME
+            else None
+        )
         if existing:
             self.stdout.write(f"Đã có DRAFT v{existing.version} «{NAME}» — bỏ qua.")
             return
