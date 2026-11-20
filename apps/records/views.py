@@ -761,7 +761,8 @@ def periodic_plan_list(request):
         p.stat_total = len(periods)
         p.stat_unfinished = sum(1 for r in periods if r.status == RecordStatus.OPEN)
         p.stat_overdue = sum(1 for r in periods if r.status == RecordStatus.OPEN and r.due_at < now)
-        open_future = [r.due_at for r in periods if r.status == RecordStatus.OPEN]
+        # "Hạn sắp tới" = hạn chưa quá — kỳ quá hạn đã đếm riêng ở stat_overdue.
+        open_future = [r.due_at for r in periods if r.status == RecordStatus.OPEN and r.due_at >= now]
         p.stat_next_due = min(open_future) if open_future else None
     return render(request, "records/periodic_list.html", {"plans": plans, "now": now})
 
